@@ -1,0 +1,17 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: sogeun-mysql
+    environment:
+      MYSQL_DATABASE: sogeun
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_USER: app
+      MYSQL_PASSWORD: apppass
+    ports:
+      - "3307:3306"
+
+  redis:
+    image: redis:7
+    container_name: sogeun-redis
+    ports:
+      - "6379:6379"
