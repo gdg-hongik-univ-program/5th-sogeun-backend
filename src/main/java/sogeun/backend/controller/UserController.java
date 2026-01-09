@@ -17,6 +17,8 @@ import sogeun.backend.dto.request.UpdateNicknameRequest;
 import sogeun.backend.dto.request.UserCreateRequest;
 import sogeun.backend.dto.response.LoginResponse;
 import sogeun.backend.dto.response.MeResponse;
+import sogeun.backend.dto.response.UserCreateResponse;
+import sogeun.backend.entity.User;
 import sogeun.backend.service.UserService;
 
 import java.net.URI;
@@ -35,17 +37,19 @@ public class UserController {
     @Operation(summary = "회원가입", description = "loginId/password/nickname을 받아 회원 생성")
     @PostMapping("/auth/signup")
     @SecurityRequirements
-    public ResponseEntity<Void> createUser(@RequestBody @Valid UserCreateRequest request) {
+    public ResponseEntity<UserCreateResponse> createUser(
+            @RequestBody @Valid UserCreateRequest request
+    ) {
 
         log.info("[회원가입] 요청 수신 - loginId={}", request.getLoginId());
 
-        Long userId = userService.createUser(request);
+        User savedUser = userService.createUser(request);
 
-        log.info("[회원가입] 처리 완료 - userId={}", userId);
+        log.info("[회원가입] 처리 완료 - userId={}", savedUser.getUserId());
 
         return ResponseEntity
-                .created(URI.create("/api/users/" + userId))
-                .build(); //UserCreateResponse 사용하게 수정 필요
+                .created(URI.create("/api/users/" + savedUser.getUserId()))
+                .body(UserCreateResponse.from(savedUser));
     }
 
     // 로그인
