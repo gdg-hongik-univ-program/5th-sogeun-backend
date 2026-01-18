@@ -28,12 +28,10 @@ public class SecurityConfig {
                                 "/api/auth/signup",
                                 "/api/auth/login",
                                 "/api/test/**",
-
                                 // swagger (local)
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-
                                 // swagger (api gateway)
                                 "/clean/swagger-ui.html",
                                 "/clean/swagger-ui/**",
