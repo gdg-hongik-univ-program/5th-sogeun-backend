@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "artists")
+@Table(name = "songs")
 @Getter
 @NoArgsConstructor
 
@@ -22,7 +22,7 @@ public class Song {
     @JoinColumn(name = "artist_id", nullable = false)
     private Artist artist; // 아티스트
 
-    protected Song(String title, Artist artist) {
+    public Song(String title, Artist artist) {
         this.title = title;
         this.artist = artist;
     }

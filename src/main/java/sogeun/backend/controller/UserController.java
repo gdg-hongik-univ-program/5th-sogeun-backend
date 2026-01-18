@@ -12,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import sogeun.backend.common.exception.UnauthorizedException;
 import sogeun.backend.common.message.ErrorMessage;
+import sogeun.backend.dto.request.FavoriteSongUpdateRequest;
 import sogeun.backend.dto.request.LoginRequest;
 import sogeun.backend.dto.request.UpdateNicknameRequest;
 import sogeun.backend.dto.request.UserCreateRequest;
@@ -117,4 +118,17 @@ public class UserController {
             throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
         }
     }
+
+    // 좋아하는 노래 설정
+    @PatchMapping("/users/me/favorite-song")
+    public MeResponse updateFavoriteSong(
+            Authentication authentication,
+            @RequestBody @Valid FavoriteSongUpdateRequest request
+    ) {
+        Long userId = extractUserId(authentication);
+        log.debug("[좋아하는노래변경] 요청 수신 - userId={}", userId);
+
+        return userService.updateFavoriteSong(userId, request);
+    }
+
 }
