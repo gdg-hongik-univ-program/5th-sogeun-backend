@@ -1,5 +1,6 @@
 package sogeun.backend.common;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -7,13 +8,15 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 import sogeun.backend.common.dto.ErrorResponse;
 import sogeun.backend.common.exception.BadRequestException;
 import sogeun.backend.common.exception.ConflictException;
 import sogeun.backend.common.exception.NotFoundException;
 import sogeun.backend.common.exception.UnauthorizedException;
 
-@ControllerAdvice
+@Slf4j
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
     // DTO 유효성 검사 실패 (@Valid)
@@ -72,8 +75,10 @@ public class GlobalExceptionHandler {
     // 처리 못한 모든 예외
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnknown(Exception e) {
+        log.error("Unhandled exception", e); // 이 한 줄이 핵심 (스택트레이스 포함)
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ErrorResponse("서버 내부 오류가 발생했습니다."));
     }
+
 }
