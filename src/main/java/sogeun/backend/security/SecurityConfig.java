@@ -32,11 +32,13 @@ public class SecurityConfig {
                                 // swagger (local)
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
+                                "/swagger-ui/index.html",
                                 "/v3/api-docs/**",
 
                                 // swagger (api gateway)
                                 "/clean/swagger-ui.html",
                                 "/clean/swagger-ui/**",
+                                "/clean/swagger-ui/index.html",
                                 "/clean/v3/api-docs/**",
 
                                 "/error",
