@@ -32,6 +32,7 @@ public class SecurityConfig {
                                 "/api/auth/signup",
                                 "/api/auth/login",
                                 "/api/test/**",
+                                "/api/users",
 
                                 // swagger (local)
                                 "/swagger-ui.html",

@@ -23,6 +23,7 @@ import sogeun.backend.entity.User;
 import sogeun.backend.service.UserService;
 
 import java.net.URI;
+import java.util.List;
 
 @Slf4j
 @Tag(name = "User", description = "회원가입/로그인/내정보/테스트 API")
@@ -76,6 +77,21 @@ public class UserController {
         log.debug("[내정보] 조회 요청 - userId={}", userId);
         return userService.getMe(userId);
     }
+
+    // 전체 유저 목록 조회
+    @Operation(summary = "전체 유저 조회", description = "전체 유저 리스트를 반환")
+    @GetMapping("/users")
+    public ResponseEntity<List<MeResponse>> getAllUsers() {
+        log.info("[유저전체조회] 요청 수신");
+
+        List<MeResponse> users = userService.getAllUsers();
+
+        log.info("[유저전체조회] 조회 완료 - count={}", users.size());
+
+        return ResponseEntity.ok(users);
+    }
+
+
 
     // 닉네임 변경
     @Operation(summary = "닉네임 변경", description = "accessToken이 유효하면 닉네임 변경")

@@ -2,14 +2,34 @@ package sogeun.backend.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import sogeun.backend.entity.Song;
+import sogeun.backend.entity.User;
 
 @Getter
-@AllArgsConstructor
+//@AllArgsConstructor
 public class MeResponse {
-    private Long userId; // 내부 회원 번호 (PK)
-    private String loginId; // 로그인 아이디
-    private String nickname; //닉네임
 
-    private String favoriteSongTitle; // 좋아하는 노래
-    private String favoriteArtistName; // 좋아하는 아티스트
+    private Long userId;
+    private String loginId;
+    private String nickname;
+    private String favoriteSongTitle;
+    private String favoriteArtistName;
+
+    public MeResponse(
+            Long userId,
+            String loginId,
+            String nickname,
+            String favoriteSongTitle,
+            String favoriteArtistName
+    ) {
+        this.userId = userId;
+        this.loginId = loginId;
+        this.nickname = nickname;
+        this.favoriteSongTitle = favoriteSongTitle;
+        this.favoriteArtistName = favoriteArtistName;
+    }
+
+    public MeResponse(Long userId, String loginId, String nickname, Song favoriteSong) {
+    }
 }
+

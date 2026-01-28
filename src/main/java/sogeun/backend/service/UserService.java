@@ -22,6 +22,8 @@ import sogeun.backend.repository.SongRepository;
 import sogeun.backend.repository.UserRepository;
 import sogeun.backend.security.JwtProvider;
 
+import java.util.List;
+
 
 @Slf4j
 @Service
@@ -124,7 +126,7 @@ public class UserService {
     }
 
     @Transactional
-    public MeResponse updateNickname(String loginId, String nickname) {
+    public Void updateNickname(String loginId, String nickname) {
 
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.USER_NOT_FOUND));
@@ -132,14 +134,7 @@ public class UserService {
         user.UpdateNickname(nickname.trim());
 
         Song favoriteSong = user.getFavoriteSong();
-
-        return new MeResponse(
-                user.getUserId(),
-                user.getLoginId(),
-                user.getNickname(),
-                favoriteSong != null ? favoriteSong.getTitle() : null,
-                favoriteSong != null ? favoriteSong.getArtist().getName() : null
-        );
+        return null;
     }
 
     @Transactional
@@ -191,6 +186,24 @@ public class UserService {
     }
 
 
+    @Transactional(readOnly = true)
+    public List<MeResponse> getAllUsers() {
+        List<User> users = userRepository.findAll();
+
+        return users.stream()
+                .map(user -> {
+                    Song favoriteSong = user.getFavoriteSong();
+
+                    return new MeResponse(
+                            user.getUserId(),
+                            user.getLoginId(),
+                            user.getNickname(),
+                            favoriteSong != null ? favoriteSong.getTitle() : null,
+                            favoriteSong != null ? favoriteSong.getArtist().getName() : null
+                    );
+                })
+                .toList();
+    }
 
 
 }
