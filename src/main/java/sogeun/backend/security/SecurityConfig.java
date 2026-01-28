@@ -45,6 +45,7 @@ public class SecurityConfig {
                                 "/clean/swagger-ui/**",
                                 "/clean/swagger-ui/index.html",
                                 "/clean/v3/api-docs/**",
+                                "/clean/api/users",
 
                                 "/error",
                                 "/"
