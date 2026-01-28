@@ -21,7 +21,7 @@ public class Artist {
     @Column(nullable = false, length = 50)
     private String name; // 중복허용 -> 동명이인 (나중에 아이디로 구분하는거 필요)
 
-    protected Artist(String name) {
+    public Artist(String name) {
         this.name = name;
     }
 

@@ -19,6 +19,7 @@ public class OpenApiConfig {
                 // 서버 목록에 API Gateway 스테이지 경로 추가
 //                .addServersItem(new io.swagger.v3.oas.models.servers.Server().url("/clean"))
                 .info(new Info()
+
                         .title("Sogeun API")
                         .version("v1"))
                 .addSecurityItem(new SecurityRequirement().addList(schemeName))
