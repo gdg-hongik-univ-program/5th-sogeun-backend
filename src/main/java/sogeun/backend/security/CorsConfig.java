@@ -18,8 +18,8 @@ public class CorsConfig {
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "http://localhost:5173",
-                "http://15.164.164.66:8080",
-                "https://pruxd7efo3.execute-api.ap-northeast-2.amazonaws.com" // 추가
+                "https://5th-sogeun-frontend-pwa-git-main-boonsterrrrs-projects.vercel.app",
+                "https://pruxd7efo3.execute-api.ap-northeast-2.amazonaws.com"
         ));
 
         config.setAllowedMethods(List.of(
