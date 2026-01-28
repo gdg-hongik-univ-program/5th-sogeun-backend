@@ -5,6 +5,7 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,8 +17,9 @@ public class OpenApiConfig {
         String schemeName = "bearerAuth";
 
         return new OpenAPI()
-                // 서버 목록에 API Gateway 스테이지 경로 추가
-//                .addServersItem(new io.swagger.v3.oas.models.servers.Server().url("/clean"))
+                // ✅ 서버 주소를 "정답"으로 고정
+                .addServersItem(new Server()
+                        .url("https://pruxd7efo3.execute-api.ap-northeast-2.amazonaws.com/clean"))
                 .info(new Info()
 
                         .title("Sogeun API")
