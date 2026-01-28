@@ -21,6 +21,7 @@ public class OpenApiConfig {
                 .addServersItem(new Server()
                         .url("https://pruxd7efo3.execute-api.ap-northeast-2.amazonaws.com/clean"))
                 .info(new Info()
+
                         .title("Sogeun API")
                         .version("v1"))
                 .addSecurityItem(new SecurityRequirement().addList(schemeName))

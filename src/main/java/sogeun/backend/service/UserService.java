@@ -9,11 +9,16 @@ import sogeun.backend.common.exception.ConflictException;
 import sogeun.backend.common.exception.NotFoundException;
 import sogeun.backend.common.exception.UnauthorizedException;
 import sogeun.backend.common.message.ErrorMessage;
+import sogeun.backend.dto.request.FavoriteSongUpdateRequest;
 import sogeun.backend.dto.request.LoginRequest;
 import sogeun.backend.dto.response.LoginResponse;
 import sogeun.backend.dto.response.MeResponse;
 import sogeun.backend.dto.request.UserCreateRequest;
+import sogeun.backend.entity.Artist;
+import sogeun.backend.entity.Song;
 import sogeun.backend.entity.User;
+import sogeun.backend.repository.ArtistRepository;
+import sogeun.backend.repository.SongRepository;
 import sogeun.backend.repository.UserRepository;
 import sogeun.backend.security.JwtProvider;
 
@@ -26,6 +31,9 @@ public class UserService {
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
+    private final ArtistRepository artistRepository;
+    private final SongRepository songRepository;
+
 
     @Transactional
     public User createUser(UserCreateRequest request) {
@@ -103,7 +111,16 @@ public class UserService {
     public MeResponse getMe(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.USER_NOT_FOUND));
-        return new MeResponse(user.getUserId(), user.getLoginId(), user.getNickname());
+
+        Song favoriteSong = user.getFavoriteSong();
+
+        return new MeResponse(
+                user.getUserId(),
+                user.getLoginId(),
+                user.getNickname(),
+                favoriteSong != null ? favoriteSong.getTitle() : null,
+                favoriteSong != null ? favoriteSong.getArtist().getName() : null
+        );
     }
 
     @Transactional
@@ -114,7 +131,15 @@ public class UserService {
 
         user.UpdateNickname(nickname.trim());
 
-        return new MeResponse(user.getUserId(), user.getLoginId(), user.getNickname());
+        Song favoriteSong = user.getFavoriteSong();
+
+        return new MeResponse(
+                user.getUserId(),
+                user.getLoginId(),
+                user.getNickname(),
+                favoriteSong != null ? favoriteSong.getTitle() : null,
+                favoriteSong != null ? favoriteSong.getArtist().getName() : null
+        );
     }
 
     @Transactional
@@ -124,8 +149,48 @@ public class UserService {
 
         user.UpdateNickname(nickname);
 
-        return new MeResponse(user.getUserId(), user.getLoginId(), user.getNickname());
+        Song favoriteSong = user.getFavoriteSong();
+
+        return new MeResponse(
+                user.getUserId(),
+                user.getLoginId(),
+                user.getNickname(),
+                favoriteSong != null ? favoriteSong.getTitle() : null,
+                favoriteSong != null ? favoriteSong.getArtist().getName() : null
+        );
     }
+
+    @Transactional
+    public MeResponse updateFavoriteSong(
+            Long userId,
+            FavoriteSongUpdateRequest request
+    ) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("USER NOT FOUND"));
+
+        Artist artist = artistRepository.findByName(request.getArtistName())
+                .orElseGet(() ->
+                        artistRepository.save(
+                                new Artist(request.getArtistName())
+                        )
+                );
+
+        Song song = songRepository.save(
+                new Song(request.getTitle(), artist)
+        );
+
+        user.updateFavoriteSong(song);
+
+        return new MeResponse(
+                user.getUserId(),
+                user.getLoginId(),
+                user.getNickname(),
+                song.getTitle(),
+                artist.getName()
+        );
+    }
+
+
 
 
 }

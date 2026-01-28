@@ -36,6 +36,15 @@ public class  User {
         this.nickname = nickname;
     }
 
+    @ManyToOne
+    @JoinColumn(name = "favorite_song_id")
+    private Song favoriteSong;
+
+    public void updateFavoriteSong(Song song) {
+        this.favoriteSong = song;
+    }
+
+
 }
 
 
