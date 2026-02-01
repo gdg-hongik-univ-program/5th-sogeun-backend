@@ -1,10 +1,48 @@
 package sogeun.backend.sse;
 
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import sogeun.backend.dto.response.UserNearbyResponse;
+import sogeun.backend.service.LocationService;
+import sogeun.backend.service.UserService;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/sse/location")
 public class LocationController {
 
-    //위치 변화시 해당위치를 프론트한테 받아서 이후 반경 계산 어쩌구...할 컨트롤러입니다
-    //-> 이 위치를 redis에 담아야 함    userId → (lon, lat)
-    //방송 ON/OFF 시 senderId 좌표를 기준으로 GEORADIUS(또는 동등 연산)로 주변 유저 ID 목록을 조회해야
-    //반경 내 유저 조회: sender 위치 기준으로 radius 검색
-    //redis 역할은 위치 저장 + 주변사람 찾기 인것(유저   리스트뽑아서 넘겨주기)
+    private final LocationService locationService;
+    private final UserService userService;
+
+
+    @PostMapping("/update")
+    public void updateLocation(
+            @RequestParam Long userId,
+            @RequestParam double lat,
+            @RequestParam double lon
+    ) {
+        locationService.updateAndNotify(userId, lat, lon);
+    }
+
+    @GetMapping("/subscribe")
+    public SseEmitter subscribe(@RequestParam Long userId) {
+        return locationService.subscribe(userId);
+    }
+
+    @GetMapping("/nearby")
+    public List<UserNearbyResponse> nearby(
+            @RequestParam Long userId,
+            @RequestParam double lat,
+            @RequestParam double lon
+    ) {
+        List<Long> ids = locationService.findNearbyUsers(userId, lat, lon, 500);
+        return userService.findUsersWithSong(ids);
+    }
+
 }

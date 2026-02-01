@@ -14,6 +14,7 @@ import sogeun.backend.dto.request.LoginRequest;
 import sogeun.backend.dto.response.LoginResponse;
 import sogeun.backend.dto.response.MeResponse;
 import sogeun.backend.dto.request.UserCreateRequest;
+import sogeun.backend.dto.response.UserNearbyResponse;
 import sogeun.backend.entity.Artist;
 import sogeun.backend.entity.Song;
 import sogeun.backend.entity.User;
@@ -21,6 +22,9 @@ import sogeun.backend.repository.ArtistRepository;
 import sogeun.backend.repository.SongRepository;
 import sogeun.backend.repository.UserRepository;
 import sogeun.backend.security.JwtProvider;
+import sogeun.backend.sse.dto.MusicDto;
+
+import java.util.List;
 
 import java.util.List;
 
@@ -35,6 +39,9 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final ArtistRepository artistRepository;
     private final SongRepository songRepository;
+    private final UserRepository UserRepository;
+
+
 
 
     @Transactional
@@ -184,6 +191,39 @@ public class UserService {
                 artist.getName()
         );
     }
+
+    public List<MusicDto> findMusicByUserIds(List<Long> userIds) {
+        return userRepository.findByUserIdIn(userIds).stream()
+                .filter(user -> user.getFavoriteSong() != null)
+                .map(user -> {
+                    Song song = user.getFavoriteSong();
+                    return new MusicDto(
+                            song.getTitle(),
+                            song.getArtist().getName(),
+                            null,
+                            null
+                    );
+                })
+                .toList();
+    }
+
+    public List<UserNearbyResponse> findUsersWithSong(List<Long> ids) {
+
+        return userRepository.findAllById(ids).stream()
+                .map(user -> {
+                    Song song = user.getFavoriteSong();
+
+                    return new UserNearbyResponse(
+                            user.getUserId(),
+                            user.getNickname(),
+                            song != null ? song.getTitle() : null,
+                            song != null ? song.getArtist().getName() : null
+                    );
+                })
+                .toList();
+    }
+
+
 
 
     @Transactional(readOnly = true)
