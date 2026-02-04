@@ -36,7 +36,7 @@ public class  User {
         this.nickname = nickname;
     }
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "favorite_song_id")
     private Song favoriteSong;
 

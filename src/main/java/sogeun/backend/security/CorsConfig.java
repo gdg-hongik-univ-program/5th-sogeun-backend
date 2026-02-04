@@ -15,11 +15,12 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(List.of(
+        config.setAllowedOriginPatterns(List.of(
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "http://15.164.164.66:8080",
-                "https://pruxd7efo3.execute-api.ap-northeast-2.amazonaws.com" // 추가
+                "https://*.vercel.app",
+                "https://pruxd7efo3.execute-api.ap-northeast-2.amazonaws.com"
         ));
 
         config.setAllowedMethods(List.of(

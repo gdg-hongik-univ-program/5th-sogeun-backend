@@ -2,6 +2,7 @@ package sogeun.backend.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -24,10 +25,14 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // ✅ CORS preflight(OPTIONS) 요청은 전부 허용
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         .requestMatchers(
                                 "/api/auth/signup",
                                 "/api/auth/login",
                                 "/api/test/**",
+                                "/api/users",
 
                                 // swagger (local)
                                 "/swagger-ui.html",
@@ -40,10 +45,11 @@ public class SecurityConfig {
                                 "/clean/swagger-ui/**",
                                 "/clean/swagger-ui/index.html",
                                 "/clean/v3/api-docs/**",
+                                "/clean/api/users",
 
                                 "/error",
                                 "/"
-                        ).permitAll() //토큰 없이도 접근 가능한 포인트
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
