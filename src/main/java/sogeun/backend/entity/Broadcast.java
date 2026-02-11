@@ -3,7 +3,6 @@ package sogeun.backend.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 
 @Getter
@@ -31,10 +30,9 @@ public class Broadcast {
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 
-    // 송출 off 상태에서는 null 가능
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "music_id")
-    private Music music;   // 현재 송출 음악 (nullable)
+    private Music music;
 
     @Column(name = "like_count", nullable = false)
     private int likeCount;
@@ -63,54 +61,47 @@ public class Broadcast {
         this.updatedAt = LocalDateTime.now();
     }
 
-
     public static Broadcast create(Long senderId) {
         Broadcast b = new Broadcast();
         b.senderId = senderId;
         b.likeCount = 0;
-        b.radiusMeter = 200;
-        b.isActive = false;  //기본 off
+        b.radiusMeter = 200; // 초기 반경
+        b.isActive = false;
         return b;
     }
 
-    // 송출 on
-    public void activate(Music music, int radiusMeter) {
-        this.isActive = true;
-        this.music = music;
-        this.radiusMeter = radiusMeter;
+    //좋아요 수에 따라 반경 계산
+    public int calculateRadius() {
+        if (this.likeCount < 10) return 200;
+        if (this.likeCount < 30) return 400;
+        if (this.likeCount < 60) return 600;
+        return 800;
     }
 
-    // 송출 off
+    public void activate() {
+        this.isActive = true;
+    }
+
     public void deactivate() {
         this.isActive = false;
         this.music = null;
     }
 
-    public boolean isActive() {
-        return this.isActive;
-    }
-
-    // 현재 음악만 변경 (좋아요/반경 유지하고)
     public void updateCurrentMusic(Music music) {
         this.music = music;
     }
 
-    public void increaseLike(int newRadius) {
+    public void updateRadiusByLikes() {
+        this.radiusMeter = calculateRadius();
+    }
+
+    public void increaseLikeCount() {
         this.likeCount++;
-        this.radiusMeter = newRadius;
+        this.radiusMeter = calculateRadius();
     }
 
-    public void decreaseLike(int newRadius) {
+    public void decreaseLikeCount() {
         this.likeCount = Math.max(0, this.likeCount - 1);
-        this.radiusMeter = newRadius;
+        this.radiusMeter = calculateRadius();
     }
-
-    public void updateRadiusMeter(int radiusMeter) {
-        if (radiusMeter < 0) {
-            throw new IllegalArgumentException("radiusMeter must be >= 0");
-        }
-        this.radiusMeter = radiusMeter;
-    }
-
 }
-
