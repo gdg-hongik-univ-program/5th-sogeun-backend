@@ -192,13 +192,13 @@ public class UserService {
 //
 //        return userRepository.findAllById(ids).stream()
 //                .map(user -> {
-////                    Song song = user.getFavoriteSong();
+//                    Song song = user.getFavoriteSong();
 //
 //                    return new UserNearbyResponse(
 //                            user.getUserId(),
 //                            user.getNickname(),
-////                            song != null ? song.getTitle() : null,
-////                            song != null ? song.getArtist().getName() : null
+//                           song != null ? song.getTitle() : null,
+//                           song != null ? song.getArtist().getName() : null
 //                    );
 //                })
 //                .toList();
