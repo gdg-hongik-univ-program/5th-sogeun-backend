@@ -25,22 +25,21 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // ✅ CORS preflight(OPTIONS) 요청은 전부 허용
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
                         .requestMatchers(
                                 "/api/auth/signup",
                                 "/api/auth/login",
+                                "/api/auth/refresh",   // ✅ 추가
+                                "/api/auth/logout",    // ✅ (권장)
+
                                 "/api/test/**",
                                 "/api/users",
 
-                                // swagger (local)
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/swagger-ui/index.html",
                                 "/v3/api-docs/**",
 
-                                // swagger (api gateway)
                                 "/clean/swagger-ui.html",
                                 "/clean/swagger-ui/**",
                                 "/clean/swagger-ui/index.html",
@@ -52,6 +51,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
+
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

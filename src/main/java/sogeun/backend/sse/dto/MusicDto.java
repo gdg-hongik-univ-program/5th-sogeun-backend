@@ -7,9 +7,9 @@ import lombok.Getter;
 @AllArgsConstructor
 public class MusicDto {
 
-    //추후 수정 예정
+    private Long trackId;
     private String title;
     private String artist;
-    private String albumArtUrl;
-    private String trackKey;
+    private String artworkUrl;
+    private String previewUrl;
 }

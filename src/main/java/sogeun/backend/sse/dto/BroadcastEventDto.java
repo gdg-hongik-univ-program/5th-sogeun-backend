@@ -4,31 +4,65 @@ import java.util.UUID;
 
 public class BroadcastEventDto {
 
-    private String type;      // BROADCAST_ON, BROADCAST_OFF, ...
+    private String type;
     private Long senderId;
-    private MusicDto music;   // OFF면 null 가능
+
+    private MusicDto music;
+
+    private Integer likeCount;    // 좋아요 수
+    private Integer radiusMeter;  // 반경
+
     private long ts;
     private String eventId;
 
     private BroadcastEventDto(
             String type,
             Long senderId,
-            MusicDto music
+            MusicDto music,
+            Integer likeCount,
+            Integer radiusMeter
     ) {
         this.type = type;
         this.senderId = senderId;
         this.music = music;
+        this.likeCount = likeCount;
+        this.radiusMeter = radiusMeter;
         this.ts = System.currentTimeMillis();
         this.eventId = UUID.randomUUID().toString();
     }
 
-    // ✅ 여기서 빨간 줄 해결됨
     public static BroadcastEventDto on(Long senderId, MusicDto music) {
-        return new BroadcastEventDto("BROADCAST_ON", senderId, music);
+        return new BroadcastEventDto(
+                "BROADCAST_ON",
+                senderId,
+                music,
+                null,
+                null
+        );
     }
 
     public static BroadcastEventDto off(Long senderId) {
-        return new BroadcastEventDto("BROADCAST_OFF", senderId, null);
+        return new BroadcastEventDto(
+                "BROADCAST_OFF",
+                senderId,
+                null,
+                null,
+                null
+        );
     }
 
+    //좋아요 변경 이벵
+    public static BroadcastEventDto likeUpdated(
+            Long senderId,
+            int likeCount,
+            int radiusMeter
+    ) {
+        return new BroadcastEventDto(
+                "BROADCAST_LIKE",
+                senderId,
+                null,
+                likeCount,
+                radiusMeter
+        );
+    }
 }

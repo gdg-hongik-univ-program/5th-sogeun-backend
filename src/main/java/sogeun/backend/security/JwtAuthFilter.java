@@ -44,6 +44,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             System.out.println("[JwtAuthFilter] token valid = " + valid);
 
             if (valid) {
+                // ✅ typ 검사: access 토큰만 인증 처리
+                String typ = jwtProvider.parseTokenType(token);
+                System.out.println("[JwtAuthFilter] token typ = " + typ);
+
+                if (!"access".equals(typ)) {
+                    System.out.println("[JwtAuthFilter] Not an access token -> skip authentication");
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 Long userId = jwtProvider.parseUserId(token);
                 System.out.println("[JwtAuthFilter] parsed userId = " + userId);
 
@@ -63,5 +73,4 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
     }
-
 }

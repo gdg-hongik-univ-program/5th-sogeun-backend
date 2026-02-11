@@ -2,15 +2,10 @@ package sogeun.backend.sse;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import sogeun.backend.dto.response.UserNearbyResponse;
-import sogeun.backend.service.LocationService;
+import sogeun.backend.sse.dto.UserNearbyResponse;
 import sogeun.backend.service.UserService;
 
-import java.io.IOException;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequiredArgsConstructor
@@ -19,6 +14,7 @@ public class LocationController {
 
     private final LocationService locationService;
     private final UserService userService;
+    private final BroadcastService broadcastService;
 
 
     @PostMapping("/update")
@@ -30,19 +26,22 @@ public class LocationController {
         locationService.updateAndNotify(userId, lat, lon);
     }
 
-    @GetMapping("/subscribe")
-    public SseEmitter subscribe(@RequestParam Long userId) {
-        return locationService.subscribe(userId);
-    }
+    //이건 기존 연결로 대체
+//    @GetMapping("/subscribe")
+//    public SseEmitter subscribe(@RequestParam Long userId) {
+//        return locationService.subscribe(userId);
+//    }
+//
 
+//    이거는 song때문에 잠시 주석..
     @GetMapping("/nearby")
     public List<UserNearbyResponse> nearby(
             @RequestParam Long userId,
             @RequestParam double lat,
-            @RequestParam double lon
+            @RequestParam double lon //이거 dto로 변환해야함
     ) {
         List<Long> ids = locationService.findNearbyUsers(userId, lat, lon, 500);
-        return userService.findUsersWithSong(ids);
+        return broadcastService.findNearbyUsersWithBroadcast(ids);
     }
 
 }
