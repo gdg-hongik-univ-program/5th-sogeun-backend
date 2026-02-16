@@ -107,8 +107,6 @@ public class JwtProvider {
         }
     }
 
-    // ===== 편의 메서드(선택이지만 필터에서 쓰기 좋음) =====
-
     public boolean isAccessToken(String token) {
         return "access".equals(parseTokenType(token));
     }

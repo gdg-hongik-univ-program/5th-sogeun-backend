@@ -2,7 +2,8 @@ package sogeun.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
-import sogeun.backend.dto.request.MusicInfo;
+import sogeun.backend.sse.dto.MusicDto;
+//import sogeun.backend.dto.request.MusicInfo;
 
 @Getter
 @Entity
@@ -39,13 +40,14 @@ public class Music {
 
     protected Music() {}
 
-    public static Music of(MusicInfo info) {
+    public static Music of(MusicDto info) {
         Music music = new Music();
-        music.trackId = info.getTrackId(); // Long → String이면 변환
-        music.title = info.getTrackName();
-        music.artist = info.getArtistName();
+        music.trackId = info.getTrackId();
+        music.title = info.getTitle();
+        music.artist = info.getArtist();
         music.artworkUrl = info.getArtworkUrl();
         music.previewUrl = info.getPreviewUrl();
         return music;
     }
+
 }

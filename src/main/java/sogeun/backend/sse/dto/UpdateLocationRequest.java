@@ -5,7 +5,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-public class BroadcastLikeRequest {
-    private Long senderId;
-    private Long likerId;
+public class UpdateLocationRequest {
+    private double lat;
+    private double lon;
 }

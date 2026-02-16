@@ -41,4 +41,6 @@ public class SseEmitterRegistry {
     public Iterable<Map.Entry<Long, SseEmitter>> entries() {
         return emitters.entrySet();
     }
+
+    public int size() { return emitters.size(); }
 }

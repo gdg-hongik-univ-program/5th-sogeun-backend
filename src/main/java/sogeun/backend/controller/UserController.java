@@ -77,7 +77,6 @@ public class UserController {
     ) {
         log.info("[로그인] 요청 수신 - loginId={}", request.getLoginId());
 
-        // 서비스가 access + refresh 둘 다 만들어서 준다고 가정
         LoginResponse result = userService.login(request);
 
         // 1) refreshToken을 HttpOnly 쿠키로 세팅
@@ -85,10 +84,10 @@ public class UserController {
         if (refreshToken != null && !refreshToken.isBlank()) {
             ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
                     .httpOnly(true)
-                    .secure(false)          // ✅ 운영(HTTPS)에서는 true로
-                    .sameSite("Lax")        // ✅ 프론트/백 도메인 다르면 "None" + secure(true)
+                    .secure(false)
+                    .sameSite("Lax")
                     .path("/")
-                    .maxAge(Duration.ofDays(14)) // ✅ yml의 refresh 만료와 맞추는 게 베스트
+                    .maxAge(Duration.ofDays(14))
                     .build();
 
             servletResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
@@ -96,7 +95,7 @@ public class UserController {
 
         log.info("[로그인] 처리 완료 - accessToken 발급 + refreshToken 쿠키 세팅");
 
-        // 2) 바디에는 accessToken만 내려줌 (프론트 기존 로직 안 깨짐)
+        // 2) 바디에는 accessToken만 내려줌
         return ResponseEntity.ok(new LoginResponse(result.accessToken(), null));
     }
 
@@ -112,14 +111,14 @@ public class UserController {
             throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
         }
 
-        // 2) refreshToken 검증(서명/만료)
+        // 2) refreshToken 검증
         boolean valid = jwtProvider.validate(refreshToken);
         if (!valid) {
             log.warn("[REFRESH] invalid refreshToken");
             throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
         }
 
-        // 3) typ이 refresh인지 확인 (중요)
+        // 3) typ이 refresh인지 확인
         String typ = jwtProvider.parseTokenType(refreshToken);
         if (!"refresh".equals(typ)) {
             log.warn("[REFRESH] token typ is not refresh. typ={}", typ);
@@ -129,7 +128,7 @@ public class UserController {
         // 4) refreshToken에서 userId 추출
         Long userId = jwtProvider.parseUserId(refreshToken);
 
-        // 5) Redis 저장된 refreshToken과 일치하는지 확인(탈취/로그아웃/이전 토큰 방지)
+        // 5) Redis 저장된 refreshToken과 일치하는지 확인
         String saved = refreshTokenRepository.get(userId);
         if (saved == null || !saved.equals(refreshToken)) {
             log.warn("[REFRESH] refreshToken mismatch or not found. userId={}", userId);
@@ -144,9 +143,7 @@ public class UserController {
         return ResponseEntity.ok(new LoginResponse(newAccessToken, null));
     }
 
-    /**
-     * 쿠키에서 특정 이름의 값을 꺼냄
-     */
+    //쿠키에서 특정 값 추출
     private String extractCookie(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) return null;
@@ -190,8 +187,8 @@ public class UserController {
         // 4) 브라우저 쿠키 삭제 (만료)
         ResponseCookie deleteCookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
-                .secure(false)      // 운영 HTTPS면 true
-                .sameSite("Lax")    // 프론트/백 분리면 None + secure(true)
+                .secure(false)
+                .sameSite("Lax")
                 .path("/")
                 .maxAge(0)
                 .build();

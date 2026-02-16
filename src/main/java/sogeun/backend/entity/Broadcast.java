@@ -97,11 +97,12 @@ public class Broadcast {
 
     public void increaseLikeCount() {
         this.likeCount++;
-        this.radiusMeter = calculateRadius();
+        updateRadiusByLikes();
     }
 
     public void decreaseLikeCount() {
         this.likeCount = Math.max(0, this.likeCount - 1);
-        this.radiusMeter = calculateRadius();
+        updateRadiusByLikes();
     }
+
 }

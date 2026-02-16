@@ -8,6 +8,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.domain.geo.Metrics;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import sogeun.backend.entity.Broadcast;
 import sogeun.backend.repository.BroadcastRepository;
 import sogeun.backend.sse.dto.NearbyUserEvent;
 
@@ -20,20 +21,41 @@ import java.util.List;
 public class LocationService {
 
     private static final String KEY = "geo:user";
+
     private final RedisTemplate<String, String> redisTemplate;
-    private final SseEmitterRegistry registry;
     private final BroadcastRepository broadcastRepository;
 
+    //현재 송출중인 유저만 위치 저장
     public void saveLocation(Long userId, double lat, double lon) {
+
+        boolean isBroadcasting = broadcastRepository
+                .findBySenderIdAndIsActiveTrue(userId)
+                .isPresent();
+
+        if (!isBroadcasting) return;
+
         redisTemplate.opsForGeo().add(KEY, new Point(lon, lat), userId.toString());
     }
 
-    public List<Long> findNearbyUsers(Long myId, double lat, double lon, double radiusMeter) {
-        Circle circle = new Circle(new Point(lon, lat), new Distance(radiusMeter, Metrics.METERS));
-        RedisGeoCommands.GeoRadiusCommandArgs args = RedisGeoCommands.GeoRadiusCommandArgs.newGeoRadiusArgs()
-                .sortAscending().includeDistance();
+    //저장된 위치 조회
+    public Point getLocation(Long userId) {
+        List<Point> positions = redisTemplate.opsForGeo().position(KEY, userId.toString());
+        return (positions == null || positions.isEmpty()) ? null : positions.get(0);
+    }
 
-        GeoResults<RedisGeoCommands.GeoLocation<String>> results = redisTemplate.opsForGeo().radius(KEY, circle, args);
+    //반경 검색
+    public List<Long> findNearbyUsersWithRadius(Long myId, double lat, double lon, double radiusMeter) {
+
+        Circle circle = new Circle(new Point(lon, lat), new Distance(radiusMeter, Metrics.METERS));
+
+        RedisGeoCommands.GeoRadiusCommandArgs args = RedisGeoCommands.GeoRadiusCommandArgs
+                .newGeoRadiusArgs()
+                .sortAscending()
+                .includeDistance();
+
+        GeoResults<RedisGeoCommands.GeoLocation<String>> results =
+                redisTemplate.opsForGeo().radius(KEY, circle, args);
+
         if (results == null) return List.of();
 
         return results.getContent().stream()
@@ -42,31 +64,13 @@ public class LocationService {
                 .toList();
     }
 
-    // 위치 업데이트 시 방송 중이면 그 방송의 반경을, 아니면 기본 200m 사용
-    public void updateAndNotify(Long userId, double lat, double lon) {
-        saveLocation(userId, lat, lon);
+    //기존 저장된 위치 기준으로 반경 생성
+    public List<Long> findNearbyUsersByBroadcastRadius(Long userId, double lat, double lon) {
 
-        double radius = broadcastRepository.findBySenderId(userId)
-                .map(b -> (double) b.getRadiusMeter())
-                .orElse(200.0);
+        Broadcast broadcast = broadcastRepository
+                .findBySenderIdAndIsActiveTrue(userId)
+                .orElseThrow(() -> new IllegalStateException("방송 중 아님"));
 
-        log.info("[NEARBY-CHECK] userId={}, applied radius={}m", userId, radius);
-
-        List<Long> nearby = findNearbyUsers(userId, lat, lon, radius);
-
-        for (Long targetId : nearby) {
-            SseEmitter emitter = registry.get(targetId);
-            if (emitter == null) continue;
-            try {
-                emitter.send(SseEmitter.event().name("NEARBY_USER").data(new NearbyUserEvent(userId)));
-            } catch (IOException e) {
-                registry.remove(targetId);
-            }
-        }
-    }
-
-    public Point getLocation(Long userId) {
-        List<Point> positions = redisTemplate.opsForGeo().position(KEY, userId.toString());
-        return (positions == null || positions.isEmpty()) ? null : positions.get(0);
+        return findNearbyUsersWithRadius(userId, lat, lon, broadcast.getRadiusMeter());
     }
 }

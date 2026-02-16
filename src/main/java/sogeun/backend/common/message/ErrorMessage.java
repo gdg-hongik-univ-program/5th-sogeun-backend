@@ -13,4 +13,7 @@ public class ErrorMessage {
     // ===== DTO Validation =====
     public static final String LOGIN_ID_NOT_NULL = "로그인 아이디는 필수입니다";
     public static final String LOGIN_ID_SIZE = "아이디는 4자 이상 20자 이하";
+
+    // ==== 위치  에러 ====
+    public static final String LOCATION_NOT_FOUND = "위치 에러";
 }

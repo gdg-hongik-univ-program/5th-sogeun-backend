@@ -1,9 +1,10 @@
-package sogeun.backend.dto.request;
+package sogeun.backend.sse.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.ToString;
+//import sogeun.backend.dto.request.MusicInfo;
 
 @ToString
 @Getter
@@ -17,5 +18,5 @@ public class BroadcastOnRequest {
 
     @NotNull(message = "음악")
     @Valid
-    private MusicInfo music;
+    private MusicDto music;
 }

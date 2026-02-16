@@ -2,6 +2,7 @@ package sogeun.backend.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.geo.Point;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,15 +15,24 @@ import sogeun.backend.dto.request.UserCreateRequest;
 import sogeun.backend.dto.response.LoginResponse;
 import sogeun.backend.dto.response.MeResponse;
 import sogeun.backend.dto.response.UserLikeSongResponse;
+import sogeun.backend.entity.Broadcast;
+import sogeun.backend.entity.Music;
 import sogeun.backend.entity.User;
 //import sogeun.backend.repository.ArtistRepository;
-import sogeun.backend.repository.MusicLikeRepository;   // ✅ 추가
+import sogeun.backend.repository.BroadcastRepository;
+import sogeun.backend.repository.MusicLikeRepository;
 import sogeun.backend.repository.UserRepository;
 import sogeun.backend.security.JwtProvider;
 import sogeun.backend.security.RefreshTokenRepository;
+import sogeun.backend.sse.dto.MusicDto;
+import sogeun.backend.sse.dto.UserNearbyResponse;
+import sogeun.backend.sse.LocationService;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,8 +44,10 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 //    private final ArtistRepository artistRepository;
     private final RefreshTokenRepository refreshTokenRepository;
-
+    private final BroadcastRepository broadcastRepository;
     private final MusicLikeRepository musicLikeRepository;
+    private final LocationService locationService;
+
 
     @Transactional
     public User createUser(UserCreateRequest request) {
@@ -133,6 +145,72 @@ public class UserService {
                 ))
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public List<UserNearbyResponse> findUsersWithSong(List<Long> userIds) {
+
+        if (userIds.isEmpty()) return List.of();
+
+        List<User> users = userRepository.findAllById(userIds);
+
+        List<Broadcast> broadcasts =
+                broadcastRepository.findBySenderIdInAndIsActiveTrue(userIds);
+
+        Map<Long, Broadcast> broadcastMap = broadcasts.stream()
+                .collect(Collectors.toMap(Broadcast::getSenderId, b -> b));
+
+        return users.stream()
+                .map(user -> {
+                    Broadcast b = broadcastMap.get(user.getUserId());
+                    if (b == null) return null; // 방송 안 하면 제외
+
+                    Music m = b.getMusic();
+                    if (m == null) return null; // 음악 없으면 제외
+
+                    return new UserNearbyResponse(
+                            user.getUserId(),
+                            user.getNickname(),
+                            true,
+                            new MusicDto(
+                                    m.getTrackId(),
+                                    m.getTitle(),
+                                    m.getArtist(),
+                                    m.getArtworkUrl(),
+                                    m.getPreviewUrl()
+                            ),
+                            b.getRadiusMeter(),
+                            b.getLikeCount()
+                    );
+                })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+
+    //내 주변 '방송중' 유저 조회
+    @Transactional(readOnly = true)
+    public List<UserNearbyResponse> findNearbyBroadcastingUsers(Long userId) {
+
+        Point p = locationService.getLocation(userId);
+        if (p == null) {
+            return List.of(); // 또는 예외
+        }
+
+        double lat = p.getY();
+        double lon = p.getX();
+
+        final double NEARBY_RADIUS_METER = 500.0;
+
+        List<Long> ids = locationService.findNearbyUsersWithRadius(
+                userId,
+                lat,
+                lon,
+                NEARBY_RADIUS_METER
+        );
+
+        return findUsersWithSong(ids);
+    }
+
 
 
 //    @Transactional(readOnly = true)

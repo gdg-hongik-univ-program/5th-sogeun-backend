@@ -17,7 +17,6 @@ public class OpenApiConfig {
         String schemeName = "bearerAuth";
 
         return new OpenAPI()
-                // ✅ 서버 주소를 "정답"으로 고정
                 .addServersItem(new Server()
                         .url("https://pruxd7efo3.execute-api.ap-northeast-2.amazonaws.com/clean"))
                 .info(new Info()

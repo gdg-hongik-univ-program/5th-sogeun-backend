@@ -4,7 +4,7 @@ public record UserNearbyResponse(
         Long userId,
         String nickname,
         boolean isBroadcasting,
-        MusicResponse music,
+        MusicDto music,
         Integer radiusMeter,
         Integer likeCount
 ) {}

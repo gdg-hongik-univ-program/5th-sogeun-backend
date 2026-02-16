@@ -11,4 +11,6 @@ public interface BroadcastRepository extends JpaRepository<Broadcast, Long> {
 
     Optional<Broadcast> findBySenderId(Long senderId);
     List<Broadcast> findBySenderIdInAndIsActiveTrue(List<Long> senderIds);
+
+    Optional<Broadcast> findBySenderIdAndIsActiveTrue(Long userId);
 }

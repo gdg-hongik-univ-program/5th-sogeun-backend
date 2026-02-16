@@ -4,15 +4,17 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import sogeun.backend.dto.request.BroadcastOnRequest;
+import sogeun.backend.sse.dto.BroadcastChangeMusicRequest;
+import sogeun.backend.sse.dto.BroadcastOnRequest;
 import sogeun.backend.sse.dto.BroadcastLikeRequest;
+import sogeun.backend.sse.dto.MyBroadcastResponse;
+
 import static sogeun.backend.security.SecurityUtil.extractUserId;
-import java.nio.file.attribute.UserPrincipal;
 
 @Slf4j
 @RestController
+@RequestMapping("/api/broadcast")
 public class BroadcastController {
 
     private final BroadcastService broadcastService;
@@ -21,7 +23,7 @@ public class BroadcastController {
         this.broadcastService = broadcastService;
     }
 
-    @PostMapping("/broadcast/on")
+    @PostMapping("/on")
     public ResponseEntity<Void> on(Authentication authentication,
                                    @RequestBody @Valid BroadcastOnRequest req) {
         log.info("[broadcast/on] req={}", req);
@@ -31,7 +33,7 @@ public class BroadcastController {
     }
 
 
-    @PostMapping("/broadcast/off")
+    @PostMapping("/off")
     public ResponseEntity<Void> off(Authentication authentication) {
         Long userId = extractUserId(authentication);
         broadcastService.turnOff(userId);
@@ -39,10 +41,36 @@ public class BroadcastController {
     }
 
 
-    // 방송 좋아요
-    @PostMapping("/broadcast/like")
-    public ResponseEntity<String> like(@RequestBody BroadcastLikeRequest request) {
-        broadcastService.toggleLike(request);
-        return ResponseEntity.ok("like toggled");
+    @PostMapping("/{senderId}/like")
+    public ResponseEntity<Void> toggleLike(
+            @PathVariable Long senderId,
+            Authentication authentication
+    ) {
+        Long likerId = extractUserId(authentication);
+        broadcastService.toggleLike(senderId, likerId);
+        return ResponseEntity.ok().build();
     }
+
+
+    //방송 음악 변경
+    @PostMapping("/changemusic")
+    public ResponseEntity<Void> changeMusic(
+            Authentication authentication,
+            @RequestBody @Valid BroadcastChangeMusicRequest request
+    ) {
+        Long userId = extractUserId(authentication);
+
+        broadcastService.changeMusic(userId, request.getMusic());
+
+        return ResponseEntity.ok().build();
+    }
+
+    //현재 자기 방송 정보 조회
+    @GetMapping("/me")
+    public ResponseEntity<MyBroadcastResponse> me(Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        MyBroadcastResponse res = broadcastService.getMyBroadcast(userId);
+        return ResponseEntity.ok(res);
+    }
+
 }

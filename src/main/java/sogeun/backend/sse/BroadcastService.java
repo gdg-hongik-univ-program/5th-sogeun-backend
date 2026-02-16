@@ -2,10 +2,12 @@ package sogeun.backend.sse;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.geo.Point;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import sogeun.backend.dto.request.MusicInfo;
+//import sogeun.backend.dto.request.MusicInfo;
+import sogeun.backend.common.exception.ConflictException;
 import sogeun.backend.entity.Broadcast;
 import sogeun.backend.entity.BroadcastLike;
 import sogeun.backend.entity.Music;
@@ -55,46 +57,39 @@ public class BroadcastService {
     }
 
     @Transactional
-    public void turnOn(Long senderId, double lat, double lon, MusicInfo musicInfo) {
+    public void turnOn(Long senderId, double lat, double lon, MusicDto music) {
         log.info("[BROADCAST-ON] start senderId={}, lat={}, lon={}", senderId, lat, lon);
 
-        if (musicInfo == null || musicInfo.getTrackId() == null) {
-            throw new IllegalArgumentException("musicInfo.trackId is required");
+        if (music == null || music.getTrackId() == null) {
+            throw new IllegalArgumentException("music.trackId is required");
         }
 
-        // 1) 위치 최신화 (Redis)
-        locationService.saveLocation(senderId, lat, lon);
-
-        // 2) broadcast 없으면 생성, 있으면 가져오기
         Broadcast broadcast = broadcastRepository.findBySenderId(senderId)
                 .orElseGet(() -> broadcastRepository.save(Broadcast.create(senderId)));
 
-        // 3) Music 엔티티 find-or-create
-        Music music = musicService.findOrCreate(musicInfo);
+        Music musicEntity = musicService.findOrCreate(music);
 
-        // 4) 상태 업데이트 (음악 설정 및 활성화)
-        broadcast.updateCurrentMusic(music);
-        broadcast.activate(); // isActive = true
+        broadcast.updateCurrentMusic(musicEntity);
+        broadcast.activate();
 
-        // 5) 엔티티에서 반경 계산 및 업데이트
         broadcast.updateRadiusByLikes();
+        int radius = broadcast.getRadiusMeter();
 
-        // 6) 갱신된 반경으로 주변 유저 조회
-        List<Long> targetUserIds = locationService.findNearbyUsers(senderId, lat, lon, broadcast.getRadiusMeter());
+        locationService.saveLocation(senderId, lat, lon);
 
-        // 7) SSE 이벤트 전송
-        MusicDto dto = new MusicDto(
-                musicInfo.getTrackId(), musicInfo.getTrackName(), musicInfo.getArtistName(),
-                musicInfo.getArtworkUrl(), musicInfo.getPreviewUrl()
-        );
-        BroadcastEventDto event = BroadcastEventDto.on(senderId, dto);
+        List<Long> targetUserIds =
+                locationService.findNearbyUsersWithRadius(senderId, lat, lon, radius);
+
+        BroadcastEventDto event = BroadcastEventDto.on(senderId, music);
 
         activeSenders.add(senderId);
         sendToTargets(targetUserIds, "broadcast.on", senderId, event);
 
         log.info("[BROADCAST-ON] done senderId={}, radius={}, targetCount={}",
-                senderId, broadcast.getRadiusMeter(), targetUserIds.size());
+                senderId, radius, targetUserIds.size());
     }
+
+
 
     @Transactional
     public void turnOff(Long senderId) {
@@ -103,92 +98,283 @@ public class BroadcastService {
         Broadcast broadcast = broadcastRepository.findBySenderId(senderId)
                 .orElseThrow(() -> new IllegalArgumentException("broadcast not found"));
 
-        broadcast.deactivate();
+        int radius = broadcast.getRadiusMeter();
 
         Point p = locationService.getLocation(senderId);
+
+        broadcast.deactivate();
+
         if (p == null) return;
 
-        // 종료 알림 전송 (기존 저장된 반경 기준)
-        List<Long> targetUserIds = locationService.findNearbyUsers(senderId, p.getY(), p.getX(), broadcast.getRadiusMeter());
+        List<Long> targetUserIds =
+                locationService.findNearbyUsersWithRadius(
+                        senderId, p.getY(), p.getX(), radius
+                );
+
         BroadcastEventDto event = BroadcastEventDto.off(senderId);
         sendToTargets(targetUserIds, "broadcast.off", senderId, event);
     }
 
-    @Transactional
-    public void toggleLike(BroadcastLikeRequest request) {
-        Long senderId = request.getSenderId();
-        Long likerId = request.getLikerId();
 
-        if (senderId.equals(likerId)) return;
+
+    @Transactional
+    public void toggleLike(Long senderId, Long likerId) {
+
+        log.info("[LIKE] toggle start senderId={}, likerId={}", senderId, likerId);
+
+        if (senderId.equals(likerId)) {
+            log.warn("[LIKE] ignored self-like senderId={}", senderId);
+            return;
+        }
 
         Broadcast broadcast = broadcastRepository.findBySenderId(senderId)
                 .orElseThrow(() -> new IllegalArgumentException("broadcast not found"));
 
-        // 1) 좋아요 토글 및 반경 자동 갱신
-        broadcastLikeRepository.findByBroadcast_BroadcastIdAndLikerUserId(broadcast.getBroadcastId(), likerId)
-                .ifPresentOrElse(existing -> {
+        int oldLikeCount = broadcast.getLikeCount();
+        int oldRadius = broadcast.getRadiusMeter();
+
+        log.info(
+                "[LIKE] before toggle senderId={} likeCount={} radius={}",
+                senderId, oldLikeCount, oldRadius
+        );
+
+        boolean liked;
+
+        liked = broadcastLikeRepository
+                .findByBroadcast_BroadcastIdAndLikerUserId(broadcast.getBroadcastId(), likerId)
+                .map(existing -> {
                     broadcastLikeRepository.delete(existing);
-                    broadcast.decreaseLikeCount(); // 엔티티 내부에서 radiusMeter도 같이 계산되도록 설계 권장
-                }, () -> {
+                    broadcast.decreaseLikeCount();
+                    log.info("[LIKE] unlike senderId={} by userId={}", senderId, likerId);
+                    return false;
+                })
+                .orElseGet(() -> {
                     broadcastLikeRepository.save(BroadcastLike.create(broadcast, likerId));
                     broadcast.increaseLikeCount();
+                    log.info("[LIKE] like senderId={} by userId={}", senderId, likerId);
+                    return true;
                 });
 
-        // 2) 변경된 반경으로 타겟 재계산 (현재 위치 기준)
-        Point p = locationService.getLocation(senderId);
-        double lat = (p != null) ? p.getY() : request.getLat();
-        double lon = (p != null) ? p.getX() : request.getLon();
+        int newLikeCount = broadcast.getLikeCount();
+        int newRadius = broadcast.getRadiusMeter();
 
-        List<Long> targetUserIds = locationService.findNearbyUsers(senderId, lat, lon, broadcast.getRadiusMeter());
-
-        // 3) SSE 전송
-        BroadcastEventDto event = BroadcastEventDto.likeUpdated(
-                senderId, broadcast.getLikeCount(), broadcast.getRadiusMeter()
+        log.info(
+                "[LIKE] after toggle senderId={} liked={} likeCount {}→{} radius {}→{}",
+                senderId,
+                liked,
+                oldLikeCount, newLikeCount,
+                oldRadius, newRadius
         );
+
+        Point p = locationService.getLocation(senderId);
+        if (p == null) {
+            log.warn("[LIKE] no location senderId={}", senderId);
+            return;
+        }
+
+        log.info(
+                "[LIKE] location senderId={} lat={} lon={}",
+                senderId, p.getY(), p.getX()
+        );
+
+        List<Long> targetUserIds =
+                locationService.findNearbyUsersWithRadius(
+                        senderId, p.getY(), p.getX(), newRadius
+                );
+
+        log.info(
+                "[LIKE] target calculated senderId={} targetCount={} targets={}",
+                senderId, targetUserIds.size(), targetUserIds
+        );
+
+        BroadcastEventDto event = BroadcastEventDto.likeUpdated(
+                senderId,
+                newLikeCount,
+                newRadius
+        );
+
         sendToTargets(targetUserIds, "broadcast.like", senderId, event);
+
+        log.info("[LIKE] toggle done senderId={}", senderId);
     }
 
-    private void sendToTargets(List<Long> targetUserIds, String eventName, Long senderId, Object data) {
+
+
+
+
+
+    private void sendToTargets(
+            List<Long> targetUserIds,
+            String eventName,
+            Long senderId,
+            Object data
+    ) {
+        log.info(
+                "[SSE-SEND] start event={} senderId={} targetCount={} registrySize={}",
+                eventName,
+                senderId,
+                targetUserIds.size(),
+                registry.size()
+        );
+
+        int success = 0;
+        int skippedSelf = 0;
+        int noEmitter = 0;
+        int failed = 0;
+
         for (Long targetId : targetUserIds) {
-            if (targetId.equals(senderId)) continue;
+
+            if (targetId.equals(senderId)) {
+                skippedSelf++;
+                log.debug("[SSE-SEND] skip self targetId={}", targetId);
+                continue;
+            }
 
             SseEmitter emitter = registry.get(targetId);
-            if (emitter == null) continue;
+            if (emitter == null) {
+                noEmitter++;
+                log.debug("[SSE-SEND] no emitter targetId={}", targetId);
+                continue;
+            }
 
             try {
-                emitter.send(SseEmitter.event().name(eventName).data(data));
+                emitter.send(
+                        SseEmitter.event()
+                                .name(eventName)
+                                .data(data, MediaType.APPLICATION_JSON)
+                );
+
+                success++;
+                log.info(
+                        "[SSE-SEND] success event={} senderId={} targetId={}",
+                        eventName, senderId, targetId
+                );
+
             } catch (IOException e) {
+                failed++;
                 registry.remove(targetId);
+                log.warn(
+                        "[SSE-SEND] failed event={} senderId={} targetId={} reason={}",
+                        eventName, senderId, targetId, e.toString()
+                );
             }
         }
+
+        log.info(
+                "[SSE-SEND] done event={} senderId={} success={} skippedSelf={} noEmitter={} failed={}",
+                eventName, senderId, success, skippedSelf, noEmitter, failed
+        );
     }
+
+
+    //송출 중 음악 변경
+    @Transactional
+    public void changeMusic(Long userId, MusicDto musicDto) {
+        Broadcast broadcast = broadcastRepository.findBySenderIdAndIsActiveTrue(userId)
+                .orElseThrow(() -> new IllegalStateException("방송 중이 아닙니다."));
+
+        // 같은 음악이면 막기 (또는 return)
+        Long currentTrackId = (broadcast.getMusic() != null) ? broadcast.getMusic().getTrackId() : null;
+        Long newTrackId = (musicDto != null) ? musicDto.getTrackId() : null;
+
+
+        if (currentTrackId != null && currentTrackId.equals(newTrackId)) {
+            // 정책 B: 409로 보내고 싶으면 예외를 커스텀해서 핸들러에서 409 매핑
+            throw new IllegalStateException("이미 같은 음악입니다.");
+            // 정책 A면: return;
+        }
+
+        Music music = musicService.findOrCreate(musicDto);
+        broadcast.updateCurrentMusic(music);
+    }
+
 
     @Transactional(readOnly = true)
-    public List<UserNearbyResponse> findNearbyUsersWithBroadcast(List<Long> ids) {
-        if (ids.isEmpty()) return Collections.emptyList();
+    public MyBroadcastResponse getMyBroadcast(Long userId) {
 
-        List<User> users = userRepository.findAllById(ids);
-        List<Broadcast> broadcasts = broadcastRepository.findBySenderIdInAndIsActiveTrue(ids);
+        Broadcast broadcast = broadcastRepository.findBySenderId(userId)
+                .orElse(null);
 
-        Map<Long, Broadcast> broadcastMap = broadcasts.stream()
-                .collect(Collectors.toMap(Broadcast::getSenderId, b -> b));
+        // 방송 자체가 없는 경우
+        if (broadcast == null) {
+            return MyBroadcastResponse.builder()
+                    .active(false)
+                    .lat(null)
+                    .lon(null)
+                    .music(null)
+                    .likeCount(0)
+                    .build();
+        }
 
-        return users.stream()
-                .map(user -> {
-                    Broadcast b = broadcastMap.get(user.getUserId());
-                    MusicResponse musicDto = null;
-                    if (b != null && b.getMusic() != null) {
-                        Music m = b.getMusic();
-                        musicDto = new MusicResponse(
-                                m.getTrackId(), m.getTitle(), m.getArtist(), m.getArtworkUrl(), m.getPreviewUrl()
-                        );
-                    }
+        boolean active = broadcast.isActive();
 
-                    return new UserNearbyResponse(
-                            user.getUserId(), user.getNickname(), b != null,
-                            musicDto, b != null ? b.getRadiusMeter() : null, b != null ? b.getLikeCount() : 0
-                    );
-                })
-                .toList();
+        // 위치 정보 (Redis)
+        Double lat = null;
+        Double lon = null;
+        Point p = locationService.getLocation(userId);
+        if (p != null) {
+            lon = p.getX();
+            lat = p.getY();
+        }
+
+        MyBroadcastResponse.MusicDto musicDto = null;
+        if (broadcast.getMusic() != null) {
+            Music m = broadcast.getMusic();
+            musicDto = MyBroadcastResponse.MusicDto.builder()
+                    .trackId(m.getTrackId())
+                    .title(m.getTitle())
+                    .artist(m.getArtist())
+                    .artworkUrl(m.getArtworkUrl())
+                    .build();
+        }
+
+        // 방송 꺼져 있으면 음악/좌표 숨김 (정책)
+        if (!active) {
+            lat = null;
+            lon = null;
+            musicDto = null;
+        }
+
+        return MyBroadcastResponse.builder()
+                .active(active)
+                .lat(lat)
+                .lon(lon)
+                .music(musicDto)
+                .likeCount(broadcast.getLikeCount())
+                .build();
     }
+
+
+
+
+
+    //근처의 '송출중인 유저'만 검색
+//    @Transactional(readOnly = true)
+//    public List<UserNearbyResponse> findNearbyUsersWithBroadcast(List<Long> ids) {
+//        if (ids.isEmpty()) return Collections.emptyList();
+//
+//        List<User> users = userRepository.findAllById(ids);
+//        List<Broadcast> broadcasts = broadcastRepository.findBySenderIdInAndIsActiveTrue(ids);
+//
+//        Map<Long, Broadcast> broadcastMap = broadcasts.stream()
+//                .collect(Collectors.toMap(Broadcast::getSenderId, b -> b));
+//
+//        return users.stream()
+//                .map(user -> {
+//                    Broadcast b = broadcastMap.get(user.getUserId());
+//                    MusicResponse musicDto = null;
+//                    if (b != null && b.getMusic() != null) {
+//                        Music m = b.getMusic();
+//                        musicDto = new MusicResponse(
+//                                m.getTrackId(), m.getTitle(), m.getArtist(), m.getArtworkUrl(), m.getPreviewUrl()
+//                        );
+//                    }
+//
+//                    return new UserNearbyResponse(
+//                            user.getUserId(), user.getNickname(), b != null,
+//                            musicDto, b != null ? b.getRadiusMeter() : null, b != null ? b.getLikeCount() : 0
+//                    );
+//                })
+//                .toList();
+//    }
 }

@@ -1,7 +1,10 @@
 package sogeun.backend.sse.dto;
 
+import lombok.Getter;
+
 import java.util.UUID;
 
+@Getter
 public class BroadcastEventDto {
 
     private String type;
