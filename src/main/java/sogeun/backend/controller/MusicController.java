@@ -19,14 +19,18 @@ public class MusicController {
 
     private final MusicService musicService;
 
-    //음악 좋아요 추가
+    //음악 좋아요 추가(토글)
+    // 음악 좋아요 토글
     @PostMapping("/update/music/likes")
-    public ResponseEntity<Void> likeMusic(Authentication authentication,
-                                          @RequestBody MusicLikeRequest request) {
+    public ResponseEntity<Void> toggleLikeMusic(
+            Authentication authentication,
+            @RequestBody MusicLikeRequest request
+    ) {
         Long userId = Long.valueOf(authentication.getName());
-        musicService.like(userId, request);
-        return ResponseEntity.ok().build();
+        musicService.toggleLike(userId, request);
+        return ResponseEntity.ok().build(); // 200
     }
+
 
     //좋아요한 음악 리스트
     @GetMapping("/library/likes")
@@ -34,17 +38,6 @@ public class MusicController {
         Long userId = Long.valueOf(authentication.getName());
         List<UserLikeSongResponse> result = musicService.getLikedSongs(userId);
         return ResponseEntity.ok(result);
-    }
-
-    //좋아요한 음악 삭제 - 그냥 토글로 바꿀까..?
-    @DeleteMapping("/update/music/likes/delete/{trackId}")
-    public ResponseEntity<Void> deleteLike(
-            @PathVariable Long trackId,
-            Authentication authentication
-    ) {
-        Long userId = Long.valueOf(authentication.getName());
-        musicService.deleteLike(userId, trackId);
-        return ResponseEntity.noContent().build(); // 204
     }
 
 

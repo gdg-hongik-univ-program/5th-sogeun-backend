@@ -1,6 +1,7 @@
 package sogeun.backend.sse;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.geo.Point;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -9,16 +10,17 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 //import sogeun.backend.dto.request.MusicInfo;
 import sogeun.backend.common.exception.ConflictException;
 import sogeun.backend.entity.Broadcast;
-import sogeun.backend.entity.BroadcastLike;
+//import sogeun.backend.entity.BroadcastLike;
 import sogeun.backend.entity.Music;
 import sogeun.backend.entity.User;
-import sogeun.backend.repository.BroadcastLikeRepository;
+//import sogeun.backend.repository.BroadcastLikeRepository;
 import sogeun.backend.repository.BroadcastRepository;
 import sogeun.backend.repository.UserRepository;
 import sogeun.backend.service.MusicService;
 import sogeun.backend.sse.dto.*;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +35,7 @@ public class BroadcastService {
     private final SseEmitterRegistry registry;
     private final LocationService locationService;
     private final BroadcastRepository broadcastRepository;
-    private final BroadcastLikeRepository broadcastLikeRepository;
+//    private final BroadcastLikeRepository broadcastLikeRepository;
     private final UserRepository userRepository;
     private final MusicService musicService;
 
@@ -44,14 +46,14 @@ public class BroadcastService {
             SseEmitterRegistry registry,
             LocationService locationService,
             BroadcastRepository broadcastRepository,
-            BroadcastLikeRepository broadcastLikeRepository,
+//            BroadcastLikeRepository broadcastLikeRepository,
             UserRepository userRepository,
             MusicService musicService
     ) {
         this.registry = registry;
         this.locationService = locationService;
         this.broadcastRepository = broadcastRepository;
-        this.broadcastLikeRepository = broadcastLikeRepository;
+//        this.broadcastLikeRepository = broadcastLikeRepository;
         this.userRepository = userRepository;
         this.musicService = musicService;
     }
@@ -118,87 +120,12 @@ public class BroadcastService {
 
 
     @Transactional
-    public void toggleLike(Long senderId, Long likerId) {
+    public void like(Long broadcastId, Long likerUserId) {
+        Broadcast broadcast = broadcastRepository.findById(broadcastId)
+                .orElseThrow();
 
-        log.info("[LIKE] toggle start senderId={}, likerId={}", senderId, likerId);
-
-        if (senderId.equals(likerId)) {
-            log.warn("[LIKE] ignored self-like senderId={}", senderId);
-            return;
-        }
-
-        Broadcast broadcast = broadcastRepository.findBySenderId(senderId)
-                .orElseThrow(() -> new IllegalArgumentException("broadcast not found"));
-
-        int oldLikeCount = broadcast.getLikeCount();
-        int oldRadius = broadcast.getRadiusMeter();
-
-        log.info(
-                "[LIKE] before toggle senderId={} likeCount={} radius={}",
-                senderId, oldLikeCount, oldRadius
-        );
-
-        boolean liked;
-
-        liked = broadcastLikeRepository
-                .findByBroadcast_BroadcastIdAndLikerUserId(broadcast.getBroadcastId(), likerId)
-                .map(existing -> {
-                    broadcastLikeRepository.delete(existing);
-                    broadcast.decreaseLikeCount();
-                    log.info("[LIKE] unlike senderId={} by userId={}", senderId, likerId);
-                    return false;
-                })
-                .orElseGet(() -> {
-                    broadcastLikeRepository.save(BroadcastLike.create(broadcast, likerId));
-                    broadcast.increaseLikeCount();
-                    log.info("[LIKE] like senderId={} by userId={}", senderId, likerId);
-                    return true;
-                });
-
-        int newLikeCount = broadcast.getLikeCount();
-        int newRadius = broadcast.getRadiusMeter();
-
-        log.info(
-                "[LIKE] after toggle senderId={} liked={} likeCount {}→{} radius {}→{}",
-                senderId,
-                liked,
-                oldLikeCount, newLikeCount,
-                oldRadius, newRadius
-        );
-
-        Point p = locationService.getLocation(senderId);
-        if (p == null) {
-            log.warn("[LIKE] no location senderId={}", senderId);
-            return;
-        }
-
-        log.info(
-                "[LIKE] location senderId={} lat={} lon={}",
-                senderId, p.getY(), p.getX()
-        );
-
-        List<Long> targetUserIds =
-                locationService.findNearbyUsersWithRadius(
-                        senderId, p.getY(), p.getX(), newRadius
-                );
-
-        log.info(
-                "[LIKE] target calculated senderId={} targetCount={} targets={}",
-                senderId, targetUserIds.size(), targetUserIds
-        );
-
-        BroadcastEventDto event = BroadcastEventDto.likeUpdated(
-                senderId,
-                newLikeCount,
-                newRadius
-        );
-
-        sendToTargets(targetUserIds, "broadcast.like", senderId, event);
-
-        log.info("[LIKE] toggle done senderId={}", senderId);
+        broadcast.increaseLikeCount(); // like + radius 같이 처리
     }
-
-
 
 
 

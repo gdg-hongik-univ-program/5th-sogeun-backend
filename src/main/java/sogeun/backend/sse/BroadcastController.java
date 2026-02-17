@@ -41,15 +41,16 @@ public class BroadcastController {
     }
 
 
-    @PostMapping("/{senderId}/like")
-    public ResponseEntity<Void> toggleLike(
-            @PathVariable Long senderId,
+    @PostMapping("/{broadcastId}/likes")
+    public ResponseEntity<Void> like(
+            @PathVariable Long broadcastId,
             Authentication authentication
     ) {
-        Long likerId = extractUserId(authentication);
-        broadcastService.toggleLike(senderId, likerId);
+        Long likerUserId = extractUserId(authentication);
+        broadcastService.like(broadcastId, likerUserId);
         return ResponseEntity.ok().build();
     }
+
 
 
     //방송 음악 변경

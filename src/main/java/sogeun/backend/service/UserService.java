@@ -171,6 +171,7 @@ public class UserService {
                             user.getUserId(),
                             user.getNickname(),
                             true,
+                            b.getBroadcastId(),
                             new MusicDto(
                                     m.getTrackId(),
                                     m.getTitle(),
@@ -187,19 +188,28 @@ public class UserService {
     }
 
 
-    //내 주변 '방송중' 유저 조회
+
+    // 내 주변 '방송중' 유저 조회
     @Transactional(readOnly = true)
     public List<UserNearbyResponse> findNearbyBroadcastingUsers(Long userId) {
 
+        log.info("[NEARBY] start requesterId={}", userId);
+
         Point p = locationService.getLocation(userId);
         if (p == null) {
+            log.warn("[NEARBY] no location requesterId={}", userId);
             return List.of(); // 또는 예외
         }
 
+        // Point 규칙: x=lon, y=lat
         double lat = p.getY();
         double lon = p.getX();
 
+        log.info("[NEARBY] location requesterId={} lat={} lon={} (pointX={} pointY={})",
+                userId, lat, lon, p.getX(), p.getY());
+
         final double NEARBY_RADIUS_METER = 500.0;
+        log.info("[NEARBY] radius meter={} requesterId={}", NEARBY_RADIUS_METER, userId);
 
         List<Long> ids = locationService.findNearbyUsersWithRadius(
                 userId,
@@ -208,8 +218,41 @@ public class UserService {
                 NEARBY_RADIUS_METER
         );
 
-        return findUsersWithSong(ids);
+        if (ids == null) {
+            log.warn("[NEARBY] ids is null requesterId={}", userId);
+            return List.of();
+        }
+
+        log.info("[NEARBY] foundIds requesterId={} count={} ids={}",
+                userId, ids.size(), ids);
+
+        List<UserNearbyResponse> result = findUsersWithSong(ids);
+
+        log.info("[NEARBY] result requesterId={} count={}",
+                userId, result.size());
+
+        if (!result.isEmpty()) {
+            String summary = result.stream()
+                    .limit(5)
+                    .map(r -> String.format(
+                            "{userId=%d,nick=%s,broadcastId=%s,like=%s,radius=%s}",
+                            r.userId(),
+                            r.nickname(),
+                            String.valueOf(r.broadcastId()),
+                            String.valueOf(r.likeCount()),
+                            String.valueOf(r.radiusMeter())
+                    ))
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse("");
+            log.info("[NEARBY] result sample requesterId={} sample=[{}]", userId, summary);
+        } else {
+            log.info("[NEARBY] result empty requesterId={} (filtered by broadcast/music?)", userId);
+        }
+
+        log.info("[NEARBY] done requesterId={}", userId);
+        return result;
     }
+
 
 
 

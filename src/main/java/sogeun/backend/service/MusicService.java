@@ -32,35 +32,26 @@ public class MusicService {
     private final MusicRecentRepository musicRecentRepository;
     private final UserRepository userRepository;
 
-    //음악 좋아요
+    //음악 좋아요(토글)
     @Transactional
-    public void like(Long userId, MusicLikeRequest request) {
+    public void toggleLike(Long userId, MusicLikeRequest request) {
         MusicDto info = request.getMusic();
         Music music = findOrCreate(info);
-
-        // 중복 좋아요 방지
-        if (musicLikeRepository.existsByUser_UserIdAndMusic_Id(userId, music.getId())) {
-            return; // 또는 409 처리
-        }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UnauthorizedException(ErrorMessage.UNAUTHORIZED));
 
-        MusicLike like = MusicLike.ofLike(user, music);
-        musicLikeRepository.save(like);
+        boolean exists = musicLikeRepository.existsByUser_UserIdAndMusic_Id(userId, music.getId());
+
+        if (exists) {
+            musicLikeRepository.deleteByUserIdAndMusicId(userId, music.getId());
+        } else {
+            MusicLike like = MusicLike.ofLike(user, music);
+            musicLikeRepository.save(like);
+        }
     }
 
-    //좋아요 취소
-    @Transactional
-    public void deleteLike(Long userId, Long trackId) {
-        Optional<Music> musicOpt = musicRepository.findByTrackId(trackId);
-        if (musicOpt.isEmpty()) return;
 
-        Long musicId = musicOpt.get().getId();
-
-        // like 테이블에서 삭제
-        musicLikeRepository.deleteByUserIdAndMusicId(userId, musicId);
-    }
 
     //좋아요 목록 조회
     @Transactional(readOnly = true)
