@@ -23,7 +23,7 @@ public class SseConnectController {
     }
 
 
-    @GetMapping(value = "/api/sse/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/sse/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName()); // 너 로직에 맞게
 
