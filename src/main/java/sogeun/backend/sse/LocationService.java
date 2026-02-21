@@ -7,12 +7,11 @@ import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.domain.geo.Metrics;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import sogeun.backend.common.error.AppException;
+import sogeun.backend.common.error.ErrorCode;
 import sogeun.backend.entity.Broadcast;
 import sogeun.backend.repository.BroadcastRepository;
-import sogeun.backend.sse.dto.NearbyUserEvent;
 
-import java.io.IOException;
 import java.util.List;
 
 @Slf4j
@@ -25,7 +24,7 @@ public class LocationService {
     private final RedisTemplate<String, String> redisTemplate;
     private final BroadcastRepository broadcastRepository;
 
-    //현재 송출중인 유저만 위치 저장
+    // 현재 송출중인 유저만 위치 저장
     public void saveLocation(Long userId, double lat, double lon) {
 
         boolean isBroadcasting = broadcastRepository
@@ -37,13 +36,13 @@ public class LocationService {
         redisTemplate.opsForGeo().add(KEY, new Point(lon, lat), userId.toString());
     }
 
-    //저장된 위치 조회
+    // 저장된 위치 조회
     public Point getLocation(Long userId) {
         List<Point> positions = redisTemplate.opsForGeo().position(KEY, userId.toString());
         return (positions == null || positions.isEmpty()) ? null : positions.get(0);
     }
 
-    //반경 검색
+    // 반경 검색
     public List<Long> findNearbyUsersWithRadius(Long myId, double lat, double lon, double radiusMeter) {
 
         Circle circle = new Circle(new Point(lon, lat), new Distance(radiusMeter, Metrics.METERS));
@@ -64,12 +63,12 @@ public class LocationService {
                 .toList();
     }
 
-    //기존 저장된 위치 기준으로 반경 생성
+    // 기존 저장된 위치 기준으로 반경 생성
     public List<Long> findNearbyUsersByBroadcastRadius(Long userId, double lat, double lon) {
 
         Broadcast broadcast = broadcastRepository
                 .findBySenderIdAndIsActiveTrue(userId)
-                .orElseThrow(() -> new IllegalStateException("방송 중 아님"));
+                .orElseThrow(() -> new AppException(ErrorCode.BROADCAST_NOT_ACTIVE));
 
         return findNearbyUsersWithRadius(userId, lat, lon, broadcast.getRadiusMeter());
     }
