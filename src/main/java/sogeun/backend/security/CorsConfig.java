@@ -16,15 +16,13 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOriginPatterns(List.of(
-                "http://localhost:3000",
-                "http://localhost:5173",
-
                 "http://localhost:*",
                 "http://127.0.0.1:*",
 
-                "http://15.164.164.66:8080",
-                "https://*.vercel.app",
-                "https://pruxd7efo3.execute-api.ap-northeast-2.amazonaws.com"
+                "https://sogeun.cloud",
+                "https://www.sogeun.cloud",
+
+                "https://*.vercel.app"
         ));
 
         config.setAllowedMethods(List.of(
@@ -32,7 +30,12 @@ public class CorsConfig {
         ));
 
         config.setAllowedHeaders(List.of("*"));
+
+        // 쿠키/JWT Authorization 헤더 허용
         config.setAllowCredentials(true);
+
+        // 프리플라이트 캐시 (성능)
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
