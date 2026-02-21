@@ -18,7 +18,7 @@ public class OpenApiConfig {
 
         return new OpenAPI()
                 .addServersItem(new Server()
-                        .url("https://pruxd7efo3.execute-api.ap-northeast-2.amazonaws.com/clean"))
+                        .url("https://sogeun.cloud"))
                 .info(new Info()
 
                         .title("Sogeun API")
