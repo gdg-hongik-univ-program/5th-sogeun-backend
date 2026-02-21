@@ -1,10 +1,11 @@
 package sogeun.backend.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import sogeun.backend.common.exception.UnauthorizedException;
-import sogeun.backend.common.message.ErrorMessage;
+import sogeun.backend.common.error.AppException;
+import sogeun.backend.common.error.ErrorCode;
 import sogeun.backend.dto.request.MusicLikeRequest;
 import sogeun.backend.dto.request.MusicRecentRequest;
 import sogeun.backend.dto.response.SogeunLibraryResponse;
@@ -16,8 +17,8 @@ import sogeun.backend.sse.dto.MusicDto;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MusicService {
@@ -28,28 +29,28 @@ public class MusicService {
     private final UserRepository userRepository;
     private final BroadcastMusicLikeRepository broadcastMusicLikeRepository;
 
-    //음악 좋아요(토글)
+    // 음악 좋아요(토글)
     @Transactional
     public void toggleLike(Long userId, MusicLikeRequest request) {
         MusicDto info = request.getMusic();
         Music music = findOrCreate(info);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UnauthorizedException(ErrorMessage.UNAUTHORIZED));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         boolean exists = musicLikeRepository.existsByUser_UserIdAndMusic_Id(userId, music.getId());
 
         if (exists) {
             musicLikeRepository.deleteByUserIdAndMusicId(userId, music.getId());
+            log.info("[MUSIC-LIKE] toggled OFF userId={} trackId={}", userId, music.getTrackId());
         } else {
             MusicLike like = MusicLike.ofLike(user, music);
             musicLikeRepository.save(like);
+            log.info("[MUSIC-LIKE] toggled ON userId={} trackId={}", userId, music.getTrackId());
         }
     }
 
-
-
-    //좋아요 목록 조회
+    // 좋아요 목록 조회
     @Transactional(readOnly = true)
     public List<UserLikeSongResponse> getLikedSongs(Long userId) {
         return musicLikeRepository.findLikedMusics(userId).stream()
@@ -57,7 +58,7 @@ public class MusicService {
                 .toList();
     }
 
-    //최근 재생 기록 (upsert)
+    // 최근 재생 기록 (upsert)
     @Transactional
     public void recordRecent(Long userId, MusicRecentRequest request) {
         MusicDto info = request.getMusic();
@@ -68,57 +69,52 @@ public class MusicService {
                 : Instant.now().toEpochMilli();
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UnauthorizedException(ErrorMessage.UNAUTHORIZED));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         musicRecentRepository.findByUser_UserIdAndMusic_Id(userId, music.getId())
                 .ifPresentOrElse(existing -> {
-                    // 기존 기록 업데이트(시간 갱신 + playCount 증가 등은 markPlayed 구현에 맞춰)
                     existing.markPlayed(playedAt);
                 }, () -> {
                     MusicRecent recent = MusicRecent.ofRec(user, music, playedAt);
                     musicRecentRepository.save(recent);
                 });
 
-        // (선택) 최근 목록 개수 제한 같은 정책이 있으면 여기서 정리
-        // trimRecentIfNeeded(userId, 50);
+        log.info("[MUSIC-RECENT] recorded userId={} trackId={} playedAt={}", userId, music.getTrackId(), playedAt);
     }
 
-    //최근 재생 목록 조회
+    // 최근 재생 목록 조회
     @Transactional(readOnly = true)
     public List<UserRecentSongResponse> getRecentSongs(Long userId) {
-        // ✅ 아래 둘 중 하나로 구현하면 됨.
-        // 1) MusicRecentRepository에서 Recent 엔티티 리스트 가져오기
         return musicRecentRepository.findByUser_UserIdOrderByLastPlayedAtDesc(userId).stream()
                 .map(UserRecentSongResponse::new)
                 .toList();
-
-        // 2) 만약 너가 "최근 재생 음악만(Music)"을 바로 뽑는 커스텀 쿼리를 만들었다면:
-        // return musicRecentRepository.findRecentMusics(userId).stream()
-        //        .map(UserRecentSongResponse::new) // 이 경우 생성자가 Music 기반이면 바꿔야 함
-        //        .toList();
     }
 
-    //trackId로 음악 검색 후 없으면 생성
+    // trackId로 음악 검색 후 없으면 생성
     @Transactional
     public Music findOrCreate(MusicDto info) {
         if (info == null || info.getTrackId() == null) {
-            throw new IllegalArgumentException("trackId is required");
+            log.warn("[MUSIC] missing trackId");
+            throw new AppException(ErrorCode.MUSIC_TRACK_ID_REQUIRED);
         }
 
         Long trackId = info.getTrackId();
 
         return musicRepository.findByTrackId(trackId)
-                .orElseGet(() -> musicRepository.save(Music.of(info)));
+                .orElseGet(() -> {
+                    Music saved = musicRepository.save(Music.of(info));
+                    log.info("[MUSIC] created trackId={}", trackId);
+                    return saved;
+                });
     }
 
     @Transactional(readOnly = true)
     public SogeunLibraryResponse getSogeunStats(Long userId) {
-
-        // 1) (senderId=userId) 기준으로 곡별 likeCount rows 조회
         List<BroadcastMusicLike> rows =
                 broadcastMusicLikeRepository.findAllBySenderIdOrderByLikeCountDesc(userId);
 
         if (rows.isEmpty()) {
+            log.info("[SOGEUN-STATS] userId={} empty", userId);
             return SogeunLibraryResponse.builder()
                     .totalTracks(0)
                     .totalLikes(0)
@@ -126,22 +122,18 @@ public class MusicService {
                     .build();
         }
 
-        // 2) trackId 리스트
         List<Long> trackIds = rows.stream()
                 .map(BroadcastMusicLike::getTrackId)
                 .distinct()
                 .toList();
 
-        // 3) Music 정보 벌크 조회 (trackId 기준)
         List<Music> musics = musicRepository.findAllByTrackIdIn(trackIds);
 
         java.util.Map<Long, Music> musicMap = musics.stream()
                 .collect(java.util.stream.Collectors.toMap(Music::getTrackId, m -> m));
 
-        // 4) totalLikes
         int totalLikes = rows.stream().mapToInt(BroadcastMusicLike::getLikeCount).sum();
 
-        // 5) 응답 매핑
         List<SogeunLibraryResponse.TrackStat> tracks = rows.stream()
                 .map(r -> {
                     Music m = musicMap.get(r.getTrackId());
@@ -155,15 +147,12 @@ public class MusicService {
                 })
                 .toList();
 
+        log.info("[SOGEUN-STATS] userId={} tracks={} totalLikes={}", userId, tracks.size(), totalLikes);
+
         return SogeunLibraryResponse.builder()
                 .totalTracks(tracks.size())
                 .totalLikes(totalLikes)
                 .tracks(tracks)
                 .build();
     }
-
-    // (선택) 최근 50개 제한 같은 정책이 필요하면 Repository/Query 만들어서 여기서 정리
-    // private void trimRecentIfNeeded(Long userId, int limit) {
-    //     // 예: 마지막 playedAt 기준으로 limit 초과분 삭제 쿼리
-    // }
 }
