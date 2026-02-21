@@ -25,16 +25,28 @@ public class SseConnectController {
 
     @GetMapping(value = "/sse/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(Authentication authentication) {
-        Long userId = Long.valueOf(authentication.getName()); // 너 로직에 맞게
+        Long userId = Long.valueOf(authentication.getName());
 
         log.info("[SSE-CONNECT] userId={} connect request", userId);
 
-        SseEmitter emitter = new SseEmitter(0L); // 무제한(원하면 30분 등으로)
+        SseEmitter emitter = new SseEmitter(0L);
         log.info("[SSE-EMITTER] userId={} created", userId);
 
-        emitter.onCompletion(() -> log.info("[SSE-DONE] userId={} completion", userId));
-        emitter.onTimeout(() -> log.warn("[SSE-TIMEOUT] userId={} timeout", userId));
-        emitter.onError(e -> log.warn("[SSE-ERROR] userId={} error={}", userId, e.toString(), e));
+        registry.addOrReplace(userId, emitter);
+        log.info("[SSE-REGISTRY] userId={} registered size={}", userId, registry.size());
+
+        emitter.onCompletion(() -> {
+            registry.remove(userId);
+            log.info("[SSE-DONE] userId={} completion (removed) size={}", userId, registry.size());
+        });
+        emitter.onTimeout(() -> {
+            registry.remove(userId);
+            log.warn("[SSE-TIMEOUT] userId={} timeout (removed) size={}", userId, registry.size());
+        });
+        emitter.onError(e -> {
+            registry.remove(userId);
+            log.warn("[SSE-ERROR] userId={} error={} (removed) size={}", userId, e.toString(), registry.size(), e);
+        });
 
         try {
             emitter.send(SseEmitter.event().name("init").data("ok"));
