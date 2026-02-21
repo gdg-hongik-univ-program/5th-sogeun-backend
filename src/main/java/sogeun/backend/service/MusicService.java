@@ -7,16 +7,11 @@ import sogeun.backend.common.exception.UnauthorizedException;
 import sogeun.backend.common.message.ErrorMessage;
 import sogeun.backend.dto.request.MusicLikeRequest;
 import sogeun.backend.dto.request.MusicRecentRequest;
+import sogeun.backend.dto.response.SogeunLibraryResponse;
 import sogeun.backend.dto.response.UserLikeSongResponse;
 import sogeun.backend.dto.response.UserRecentSongResponse;
-import sogeun.backend.entity.Music;
-import sogeun.backend.entity.MusicLike;
-import sogeun.backend.entity.MusicRecent;
-import sogeun.backend.entity.User;
-import sogeun.backend.repository.MusicLikeRepository;
-import sogeun.backend.repository.MusicRecentRepository;
-import sogeun.backend.repository.MusicRepository;
-import sogeun.backend.repository.UserRepository;
+import sogeun.backend.entity.*;
+import sogeun.backend.repository.*;
 import sogeun.backend.sse.dto.MusicDto;
 
 import java.time.Instant;
@@ -31,6 +26,7 @@ public class MusicService {
     private final MusicLikeRepository musicLikeRepository;
     private final MusicRecentRepository musicRecentRepository;
     private final UserRepository userRepository;
+    private final BroadcastMusicLikeRepository broadcastMusicLikeRepository;
 
     //음악 좋아요(토글)
     @Transactional
@@ -113,6 +109,57 @@ public class MusicService {
 
         return musicRepository.findByTrackId(trackId)
                 .orElseGet(() -> musicRepository.save(Music.of(info)));
+    }
+
+    @Transactional(readOnly = true)
+    public SogeunLibraryResponse getSogeunStats(Long userId) {
+
+        // 1) (senderId=userId) 기준으로 곡별 likeCount rows 조회
+        List<BroadcastMusicLike> rows =
+                broadcastMusicLikeRepository.findAllBySenderIdOrderByLikeCountDesc(userId);
+
+        if (rows.isEmpty()) {
+            return SogeunLibraryResponse.builder()
+                    .totalTracks(0)
+                    .totalLikes(0)
+                    .tracks(List.of())
+                    .build();
+        }
+
+        // 2) trackId 리스트
+        List<Long> trackIds = rows.stream()
+                .map(BroadcastMusicLike::getTrackId)
+                .distinct()
+                .toList();
+
+        // 3) Music 정보 벌크 조회 (trackId 기준)
+        List<Music> musics = musicRepository.findAllByTrackIdIn(trackIds);
+
+        java.util.Map<Long, Music> musicMap = musics.stream()
+                .collect(java.util.stream.Collectors.toMap(Music::getTrackId, m -> m));
+
+        // 4) totalLikes
+        int totalLikes = rows.stream().mapToInt(BroadcastMusicLike::getLikeCount).sum();
+
+        // 5) 응답 매핑
+        List<SogeunLibraryResponse.TrackStat> tracks = rows.stream()
+                .map(r -> {
+                    Music m = musicMap.get(r.getTrackId());
+                    return SogeunLibraryResponse.TrackStat.builder()
+                            .trackId(r.getTrackId())
+                            .title(m != null ? m.getTitle() : null)
+                            .artist(m != null ? m.getArtist() : null)
+                            .artworkUrl(m != null ? m.getArtworkUrl() : null)
+                            .likeCount(r.getLikeCount())
+                            .build();
+                })
+                .toList();
+
+        return SogeunLibraryResponse.builder()
+                .totalTracks(tracks.size())
+                .totalLikes(totalLikes)
+                .tracks(tracks)
+                .build();
     }
 
     // (선택) 최근 50개 제한 같은 정책이 필요하면 Repository/Query 만들어서 여기서 정리

@@ -51,8 +51,6 @@ public class BroadcastController {
         return ResponseEntity.ok().build();
     }
 
-
-
     //방송 음악 변경
     @PostMapping("/changemusic")
     public ResponseEntity<Void> changeMusic(

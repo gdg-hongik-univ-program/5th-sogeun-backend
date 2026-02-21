@@ -6,11 +6,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import sogeun.backend.dto.request.MusicLikeRequest;
 import sogeun.backend.dto.request.MusicRecentRequest;
+import sogeun.backend.dto.response.SogeunLibraryResponse;
 import sogeun.backend.dto.response.UserLikeSongResponse;
 import sogeun.backend.dto.response.UserRecentSongResponse;
 import sogeun.backend.service.MusicService;
 
 import java.util.List;
+
+import static sogeun.backend.security.SecurityUtil.extractUserId;
 
 @RestController
 @RequiredArgsConstructor
@@ -62,4 +65,11 @@ public class MusicController {
         Long userId = Long.valueOf(authentication.getName());
         return ResponseEntity.ok(musicService.getRecentSongs(userId));
     }
+
+    @GetMapping("/library/sogeun")
+    public ResponseEntity<SogeunLibraryResponse> sogeun(Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        return ResponseEntity.ok(musicService.getSogeunStats(userId));
+    }
+
 }

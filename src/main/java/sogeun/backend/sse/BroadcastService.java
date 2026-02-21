@@ -1,5 +1,6 @@
 package sogeun.backend.sse;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.geo.Point;
@@ -11,52 +12,37 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import sogeun.backend.common.exception.ConflictException;
 import sogeun.backend.entity.Broadcast;
 //import sogeun.backend.entity.BroadcastLike;
+import sogeun.backend.entity.BroadcastMusicLike;
 import sogeun.backend.entity.Music;
 import sogeun.backend.entity.User;
 //import sogeun.backend.repository.BroadcastLikeRepository;
+import sogeun.backend.repository.BroadcastMusicLikeRepository;
 import sogeun.backend.repository.BroadcastRepository;
 import sogeun.backend.repository.UserRepository;
 import sogeun.backend.service.MusicService;
 import sogeun.backend.sse.dto.*;
 
+
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class BroadcastService {
 
     private final SseEmitterRegistry registry;
     private final LocationService locationService;
     private final BroadcastRepository broadcastRepository;
-//    private final BroadcastLikeRepository broadcastLikeRepository;
     private final UserRepository userRepository;
     private final MusicService musicService;
+    private final BroadcastMusicLikeRepository broadcastMusicLikeRepository;
 
     // 켜져 있는 사용자 상태 저장 (메모리)
     private final Set<Long> activeSenders = ConcurrentHashMap.newKeySet();
-
-    public BroadcastService(
-            SseEmitterRegistry registry,
-            LocationService locationService,
-            BroadcastRepository broadcastRepository,
-//            BroadcastLikeRepository broadcastLikeRepository,
-            UserRepository userRepository,
-            MusicService musicService
-    ) {
-        this.registry = registry;
-        this.locationService = locationService;
-        this.broadcastRepository = broadcastRepository;
-//        this.broadcastLikeRepository = broadcastLikeRepository;
-        this.userRepository = userRepository;
-        this.musicService = musicService;
-    }
 
     @Transactional
     public void turnOn(Long senderId, double lat, double lon, MusicDto music) {
@@ -117,16 +103,110 @@ public class BroadcastService {
         sendToTargets(targetUserIds, "broadcast.off", senderId, event);
     }
 
-
+    private MusicDto toMusicDto(Music m) {
+        if (m == null) return null;
+        return new MusicDto(
+                m.getTrackId(),
+                m.getTitle(),
+                m.getArtist(),
+                m.getArtworkUrl(),
+                m.getPreviewUrl()
+        );
+    }
 
     @Transactional
     public void like(Long broadcastId, Long likerUserId) {
         Broadcast broadcast = broadcastRepository.findById(broadcastId)
-                .orElseThrow();
+                .orElseThrow(() -> new IllegalArgumentException("broadcast not found"));
 
-        broadcast.increaseLikeCount(); // like + radius 같이 처리
+        // ✅ 방송 중인 경우에만 반경 전파 의미가 있음 (정책에 맞게)
+        if (!broadcast.isActive()) {
+            // 여기 분기는 "off면 좋아요 못 누름"이면 사실상 호출될 일이 없지만,
+            // 혹시 모를 예외 상황 대비로 기존 로직 유지
+            broadcast.increaseLikeCount();
+            return;
+        }
+
+        Long senderId = broadcast.getSenderId();
+
+        // 1) 반경 변경 전 값 저장
+        int oldRadius = broadcast.getRadiusMeter();
+
+        // 2) like 증가 (+ 내부에서 radius 업데이트)
+        broadcast.increaseLikeCount();
+
+        // ⭐ 추가: "현재 곡"의 곡별 likeCount도 +1 저장
+        // (broadcast.likeCount는 반경용 누적이므로 건드리지 않음)
+        Music cur = broadcast.getMusic();
+        if (cur != null && cur.getTrackId() != null) {
+            increaseSongLikeCount(senderId, cur.getTrackId());
+        }
+
+        // 3) 반경 변경 후 값
+        int newRadius = broadcast.getRadiusMeter();
+
+        // ✅ 반경이 실제로 안 변했으면 굳이 재전파할 필요 없음 (성능/깜빡임 방지)
+        if (oldRadius == newRadius) {
+            Point p = locationService.getLocation(senderId);
+            if (p == null) return;
+
+            double lat = p.getY();
+            double lon = p.getX();
+
+            List<Long> targets = locationService.findNearbyUsersWithRadius(senderId, lat, lon, newRadius);
+            BroadcastLikeEventDto likeEvent =
+                    BroadcastLikeEventDto.of(senderId, broadcastId, broadcast.getLikeCount(), newRadius);
+
+            sendToTargets(targets, "broadcast.like", senderId, likeEvent);
+            return;
+        }
+
+        // 4) sender 위치가 있어야 타겟 계산 가능
+        Point p = locationService.getLocation(senderId);
+        if (p == null) return;
+
+        double lat = p.getY(); // y=lat
+        double lon = p.getX(); // x=lon
+
+        // 5) oldTargets / newTargets 계산
+        List<Long> oldTargets = locationService.findNearbyUsersWithRadius(senderId, lat, lon, oldRadius);
+        List<Long> newTargets = locationService.findNearbyUsersWithRadius(senderId, lat, lon, newRadius);
+
+        Set<Long> oldSet = new HashSet<>(oldTargets);
+        Set<Long> newSet = new HashSet<>(newTargets);
+
+        // joined = new - old
+        Set<Long> joined = new HashSet<>(newSet);
+        joined.removeAll(oldSet);
+
+        // left = old - new
+        Set<Long> left = new HashSet<>(oldSet);
+        left.removeAll(newSet);
+
+        // kept = intersection
+        Set<Long> kept = new HashSet<>(newSet);
+        kept.retainAll(oldSet);
+
+        // 6) joined에게는 "broadcast.on" (신규 노출)
+        MusicDto musicDto = toMusicDto(broadcast.getMusic());
+        if (!joined.isEmpty() && musicDto != null) {
+            BroadcastEventDto onEvent = BroadcastEventDto.on(senderId, musicDto);
+            sendToTargets(joined.stream().toList(), "broadcast.on", senderId, onEvent);
+        }
+
+        // 7) left에게는 "broadcast.off" (범위 밖)
+        if (!left.isEmpty()) {
+            BroadcastEventDto offEvent = BroadcastEventDto.off(senderId);
+            sendToTargets(left.stream().toList(), "broadcast.off", senderId, offEvent);
+        }
+
+        // 8) kept에게는 "broadcast.like" (업데이트: likeCount/radius)
+        if (!kept.isEmpty()) {
+            BroadcastLikeEventDto likeEvent =
+                    BroadcastLikeEventDto.of(senderId, broadcastId, broadcast.getLikeCount(), newRadius);
+            sendToTargets(kept.stream().toList(), "broadcast.like", senderId, likeEvent);
+        }
     }
-
 
 
 
@@ -271,6 +351,33 @@ public class BroadcastService {
                 .build();
     }
 
+    private int loadSongLikeCount(Long senderId, Long trackId) {
+        return broadcastMusicLikeRepository
+                .findBySenderIdAndTrackId(senderId, trackId)
+                .map(BroadcastMusicLike::getLikeCount)
+                .orElse(0);
+    }
+
+    private void saveSongLikeCount(Long senderId, Long trackId, int likeCount) {
+        BroadcastMusicLike entity = broadcastMusicLikeRepository
+                .findBySenderIdAndTrackId(senderId, trackId)
+                .orElseGet(() -> BroadcastMusicLike.of(senderId, trackId, likeCount));
+
+        entity.updateLikeCount(likeCount);
+        broadcastMusicLikeRepository.save(entity);
+    }
+
+    private int increaseSongLikeCount(Long senderId, Long trackId) {
+        BroadcastMusicLike entity = broadcastMusicLikeRepository
+                .findBySenderIdAndTrackId(senderId, trackId)
+                .orElseGet(() -> BroadcastMusicLike.of(senderId, trackId, 0));
+
+        int newCount = entity.getLikeCount() + 1;
+        entity.updateLikeCount(newCount);
+        broadcastMusicLikeRepository.save(entity);
+
+        return newCount; // 필요하면 이벤트/응답에 써도 됨
+    }
 
 
 
