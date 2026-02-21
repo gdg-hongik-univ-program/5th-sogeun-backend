@@ -14,19 +14,17 @@ import sogeun.backend.dto.request.LoginRequest;
 import sogeun.backend.dto.request.UserCreateRequest;
 import sogeun.backend.dto.response.LoginResponse;
 import sogeun.backend.dto.response.MeResponse;
-import sogeun.backend.dto.response.UserLikeSongResponse;
 import sogeun.backend.entity.Broadcast;
 import sogeun.backend.entity.Music;
 import sogeun.backend.entity.User;
-//import sogeun.backend.repository.ArtistRepository;
 import sogeun.backend.repository.BroadcastRepository;
 import sogeun.backend.repository.MusicLikeRepository;
 import sogeun.backend.repository.UserRepository;
 import sogeun.backend.security.JwtProvider;
 import sogeun.backend.security.RefreshTokenRepository;
+import sogeun.backend.sse.LocationService;
 import sogeun.backend.sse.dto.MusicDto;
 import sogeun.backend.sse.dto.UserNearbyResponse;
-import sogeun.backend.sse.LocationService;
 
 import java.time.Duration;
 import java.util.List;
@@ -42,12 +40,10 @@ public class UserService {
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
-//    private final ArtistRepository artistRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final BroadcastRepository broadcastRepository;
     private final MusicLikeRepository musicLikeRepository;
     private final LocationService locationService;
-
 
     @Transactional
     public User createUser(UserCreateRequest request) {
@@ -91,11 +87,6 @@ public class UserService {
     }
 
     @Transactional
-    public void deleteAllUsers() {
-        userRepository.deleteAll();
-    }
-
-    @Transactional
     public void resetUsersForTest() {
         userRepository.truncateUsers();
     }
@@ -111,15 +102,6 @@ public class UserService {
                 user.getNickname()
         );
     }
-
-//    @Transactional
-//    public Void updateNickname(String loginId, String nickname) {
-//        User user = userRepository.findByLoginId(loginId)
-//                .orElseThrow(() -> new NotFoundException(ErrorMessage.USER_NOT_FOUND));
-//
-//        user.updateNickname(nickname.trim());
-//        return null;
-//    }
 
     @Transactional
     public MeResponse updateNicknameByUserId(Long userId, String nickname) {
@@ -187,18 +169,23 @@ public class UserService {
                 .toList();
     }
 
-
-
     // 내 주변 '방송중' 유저 조회
+    // 정책: 방송 안 켠 유저는 호출 X (방송 중이 아니면 예외)
     @Transactional(readOnly = true)
     public List<UserNearbyResponse> findNearbyBroadcastingUsers(Long userId) {
 
         log.info("[NEARBY] start requesterId={}", userId);
 
+        // ✅ 방송중인지 먼저 확정 (정책상 방송 안 켠 유저는 호출 X)
+        Broadcast requesterBroadcast = broadcastRepository
+                .findBySenderIdAndIsActiveTrue(userId)
+                .orElseThrow(() -> new IllegalStateException("방송 중 아님"));
+
+        // ✅ 방송중인 유저만 redis geo에 저장된다는 정책이므로, 없으면 비정상 상태로 보고 예외/빈값 중 택1
         Point p = locationService.getLocation(userId);
         if (p == null) {
-            log.warn("[NEARBY] no location requesterId={}", userId);
-            return List.of(); // 또는 예외
+            log.warn("[NEARBY] no location but broadcasting requesterId={}", userId);
+            return List.of(); // 또는 throw new IllegalStateException("위치 정보 없음");
         }
 
         // Point 규칙: x=lon, y=lat
@@ -208,20 +195,16 @@ public class UserService {
         log.info("[NEARBY] location requesterId={} lat={} lon={} (pointX={} pointY={})",
                 userId, lat, lon, p.getX(), p.getY());
 
-        final double NEARBY_RADIUS_METER = 500.0;
-        log.info("[NEARBY] radius meter={} requesterId={}", NEARBY_RADIUS_METER, userId);
+        // ✅ 핵심 수정: 내 좋아요 기반 반경(= broadcast.radius)으로 검색
+        double radiusMeter = requesterBroadcast.getRadiusMeter();
+        log.info("[NEARBY] radius meter={} requesterId={}", radiusMeter, userId);
 
         List<Long> ids = locationService.findNearbyUsersWithRadius(
                 userId,
                 lat,
                 lon,
-                NEARBY_RADIUS_METER
+                radiusMeter
         );
-
-        if (ids == null) {
-            log.warn("[NEARBY] ids is null requesterId={}", userId);
-            return List.of();
-        }
 
         log.info("[NEARBY] foundIds requesterId={} count={} ids={}",
                 userId, ids.size(), ids);
@@ -252,77 +235,4 @@ public class UserService {
         log.info("[NEARBY] done requesterId={}", userId);
         return result;
     }
-
-
-
-
-//    @Transactional(readOnly = true)
-//    public List<UserLikeSongResponse> getLikedSongs(Long userId) {
-//        return musicLikeRepository.findLikedMusics(userId).stream()
-//                .map(UserLikeSongResponse::new)
-//                .toList();
-//    }
-
-
-//    @Transactional
-//    public MeResponse updateFavoriteSong(
-//            Long userId,
-//            FavoriteSongUpdateRequest request
-//    ) {
-//        User user = userRepository.findById(userId)
-//                .orElseThrow(() -> new IllegalArgumentException("USER NOT FOUND"));
-//
-//        Artist artist = artistRepository.findByName(request.getArtistName())
-//                .orElseGet(() ->
-//                        artistRepository.save(
-//                                new Artist(request.getArtistName())
-//                        )
-//                );
-//
-//        Song song = songRepository.save(
-//                new Song(request.getTitle(), artist)
-//        );
-//
-//        user.updateFavoriteSong(song);
-//
-//        return new MeResponse(
-//                user.getUserId(),
-//                user.getLoginId(),
-//                user.getNickname(),
-//                song.getTitle(),
-//                artist.getName()
-//        );
-//    }
-
-//    public List<MusicDto> findMusicByUserIds(List<Long> userIds) {
-//        return userRepository.findByUserIdIn(userIds).stream()
-//                .filter(user -> user.getFavoriteSong() != null)
-//                .map(user -> {
-//                    Song song = user.getFavoriteSong();
-//                    return new MusicDto(
-//                            song.getTitle(),
-//                            song.getArtist().getName(),
-//                            null,
-//                            null
-//                    );
-//                })
-//                .toList();
-//    }
-
-//    public List<UserNearbyResponse> findUsersWithSong(List<Long> ids) {
-//
-//        return userRepository.findAllById(ids).stream()
-//                .map(user -> {
-////                    Song song = user.getFavoriteSong();
-//
-//                    return new UserNearbyResponse(
-//                            user.getUserId(),
-//                            user.getNickname(),
-////                            song != null ? song.getTitle() : null,
-////                            song != null ? song.getArtist().getName() : null
-//                    );
-//                })
-//                .toList();
-//    }
-
 }
