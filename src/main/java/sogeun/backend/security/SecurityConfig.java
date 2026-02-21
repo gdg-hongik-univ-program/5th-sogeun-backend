@@ -56,7 +56,7 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // ✅ SSE는 인증 필요(명시)
-                        .requestMatchers(HttpMethod.GET, "/api/sse/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/sse/**").permitAll()
 
                         .anyRequest().authenticated()
                 )
