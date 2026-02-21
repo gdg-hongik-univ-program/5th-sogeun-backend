@@ -168,11 +168,12 @@ public class UserService {
     }
 
     // 내 주변 '방송중' 유저 조회
+    // 정책: 방송 안 켠 유저는 호출 X (방송 중이 아니면 예외)
     @Transactional(readOnly = true)
     public List<UserNearbyResponse> findNearbyBroadcastingUsers(Long userId) {
         log.info("[NEARBY] start requesterId={}", userId);
 
-        // 방송 중인지 확인(정책)
+        // 방송 중인지 확인
         Broadcast requesterBroadcast = broadcastRepository
                 .findBySenderIdAndIsActiveTrue(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.BROADCAST_NOT_ACTIVE));
