@@ -18,6 +18,10 @@ public class CorsConfig {
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:3000",
                 "http://localhost:5173",
+
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+
                 "http://15.164.164.66:8080",
                 "https://*.vercel.app",
                 "https://pruxd7efo3.execute-api.ap-northeast-2.amazonaws.com"
