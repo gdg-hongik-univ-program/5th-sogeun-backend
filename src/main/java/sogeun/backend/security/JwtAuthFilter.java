@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority; // ✅ 추가됨
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -40,7 +41,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7);
 
-        //토큰 검증 실패시
+        // 토큰 검증
         try {
             if (!jwtProvider.validate(token)) {
                 log.warn("[JWT] invalid token (validation failed). {} {}", request.getMethod(), request.getRequestURI());
@@ -48,7 +49,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 return;
             }
         } catch (Exception e) {
-            // 검증 과정에서 발생한 구체적인 에러 메시지(만료, 서명 불일치 등)를 로그로 남깁니다.
             log.warn("[JWT] invalid token. Reason: {} | Path: {} {}", e.getMessage(), request.getMethod(), request.getRequestURI());
             filterChain.doFilter(request, response);
             return;
@@ -63,13 +63,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         Long userId = jwtProvider.parseUserId(token);
 
+        List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
+
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(userId, null, List.of());
+                new UsernamePasswordAuthenticationToken(userId, null, authorities);
 
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        log.debug("[JWT] authenticated userId={} {} {}", userId, request.getMethod(), request.getRequestURI());
+        log.debug("[JWT] authenticated userId={} with authorities={} {} {}",
+                userId, authorities, request.getMethod(), request.getRequestURI());
 
         filterChain.doFilter(request, response);
     }
