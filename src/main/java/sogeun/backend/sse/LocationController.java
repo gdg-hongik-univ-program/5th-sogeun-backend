@@ -2,6 +2,7 @@ package sogeun.backend.sse;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -30,7 +31,7 @@ public class LocationController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/nearby")
+    @GetMapping(value = "/nearby", produces = MediaType.APPLICATION_JSON_VALUE)
     public List<UserNearbyResponse> nearby(Authentication authentication) {
         Long userId = extractUserId(authentication);
         return userService.findNearbyBroadcastingUsers(userId);
