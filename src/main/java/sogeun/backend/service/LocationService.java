@@ -1,4 +1,4 @@
-package sogeun.backend.sse;
+package sogeun.backend.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,9 +7,6 @@ import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.domain.geo.Metrics;
 import org.springframework.stereotype.Service;
-import sogeun.backend.common.error.AppException;
-import sogeun.backend.common.error.ErrorCode;
-import sogeun.backend.entity.Broadcast;
 import sogeun.backend.repository.BroadcastRepository;
 
 import java.util.List;

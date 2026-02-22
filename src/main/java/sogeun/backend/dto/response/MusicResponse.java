@@ -1,4 +1,4 @@
-package sogeun.backend.sse.dto;
+package sogeun.backend.dto.response;
 
 public record MusicResponse(
         Long trackId,

@@ -1,13 +1,14 @@
-package sogeun.backend.sse;
+package sogeun.backend.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import sogeun.backend.sse.dto.UpdateLocationRequest;
+import sogeun.backend.service.LocationService;
+import sogeun.backend.dto.request.UpdateLocationRequest;
 import sogeun.backend.service.UserService;
-import sogeun.backend.sse.dto.UserNearbyResponse;
+import sogeun.backend.dto.response.UserNearbyResponse;
 
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package sogeun.backend.sse.dto;
+package sogeun.backend.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

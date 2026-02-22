@@ -1,4 +1,6 @@
-package sogeun.backend.sse.dto;
+package sogeun.backend.dto.response;
+
+import sogeun.backend.sse.dto.MusicDto;
 
 public record UserNearbyResponse(
         Long userId,            // 내부 식별자 (프론트에서 안 써도 됨)

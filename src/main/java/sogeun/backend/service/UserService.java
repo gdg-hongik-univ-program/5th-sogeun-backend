@@ -20,9 +20,8 @@ import sogeun.backend.repository.MusicLikeRepository;
 import sogeun.backend.repository.UserRepository;
 import sogeun.backend.security.JwtProvider;
 import sogeun.backend.security.RefreshTokenRepository;
-import sogeun.backend.sse.LocationService;
 import sogeun.backend.sse.dto.MusicDto;
-import sogeun.backend.sse.dto.UserNearbyResponse;
+import sogeun.backend.dto.response.UserNearbyResponse;
 
 import java.time.Duration;
 import java.util.List;
