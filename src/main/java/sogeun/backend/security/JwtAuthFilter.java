@@ -41,12 +41,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         //토큰 검증 실패시
-        if (!jwtProvider.validate(token)) {
-            log.warn("[JWT] invalid token. {} {}", request.getMethod(), request.getRequestURI());
+        try {
+            if (!jwtProvider.validate(token)) {
+                log.warn("[JWT] invalid token (validation failed). {} {}", request.getMethod(), request.getRequestURI());
+                filterChain.doFilter(request, response);
+                return;
+            }
+        } catch (Exception e) {
+            // 검증 과정에서 발생한 구체적인 에러 메시지(만료, 서명 불일치 등)를 로그로 남깁니다.
+            log.warn("[JWT] invalid token. Reason: {} | Path: {} {}", e.getMessage(), request.getMethod(), request.getRequestURI());
             filterChain.doFilter(request, response);
             return;
         }
-
         // access 토큰만 인증 처리 (refresh면 스킵)
         String typ = jwtProvider.parseTokenType(token);
         if (!"access".equals(typ)) {
