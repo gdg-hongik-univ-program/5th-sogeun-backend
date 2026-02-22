@@ -70,12 +70,19 @@ public class Broadcast {
         return b;
     }
 
-    //좋아요 수에 따라 반경 계산
+    // 좋아요 수에 따라 반경 계산
     public int calculateRadius() {
-        if (this.likeCount < 10) return 200;
-        if (this.likeCount < 30) return 400;
-        if (this.likeCount < 60) return 600;
-        return 800;
+        int like = this.likeCount;
+
+        if (like <= 2) return 50;
+        if (like <= 5) return 100;
+        if (like <= 10) return 150;
+        if (like <= 15) return 200;
+        if (like <= 20) return 250;
+        if (like <= 30) return 300;
+        if (like <= 40) return 350;
+
+        return 350;
     }
 
     public void activate() {
