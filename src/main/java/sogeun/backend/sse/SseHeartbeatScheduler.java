@@ -26,8 +26,7 @@ public class SseHeartbeatScheduler {
     // 30초마다 ping 보냄
     @Scheduled(fixedRate = 30_000)
     public void pingAll() {
-        int total = 0;
-        int success = 0;
+        int total = 0;        int success = 0;
         int failed = 0;
 
         for (Map.Entry<Long, SseEmitter> entry : registry.entries()) {
