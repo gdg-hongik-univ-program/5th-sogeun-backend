@@ -83,7 +83,7 @@ public class JwtProvider {
         return typ == null ? null : typ.toString();
     }
 
-    //JWT 유효성 검증
+    // JwtProvider.java의 validate 메소드 수정
     public boolean validate(String token) {
         try {
             Jwts.parserBuilder()
@@ -91,8 +91,20 @@ public class JwtProvider {
                     .build()
                     .parseClaimsJws(token);
             return true;
-
-        } catch (JwtException | IllegalArgumentException e) {
+        } catch (ExpiredJwtException e) {
+            // 이 로그가 찍히면 토큰 만료입니다.
+            System.out.println("[JWT Error] Expired Token: " + e.getMessage());
+            return false;
+        } catch (SignatureException e) {
+            // 이 로그가 찍히면 Secret Key가 서버와 안 맞는 겁니다.
+            System.out.println("[JWT Error] Invalid Signature: " + e.getMessage());
+            return false;
+        } catch (MalformedJwtException e) {
+            // 이 로그가 찍히면 토큰 문자열 자체가 깨진 겁니다 (공백, 따옴표 등).
+            System.out.println("[JWT Error] Malformed Token: " + e.getMessage());
+            return false;
+        } catch (Exception e) {
+            System.out.println("[JWT Error] Unknown Error: " + e.getMessage());
             return false;
         }
     }
