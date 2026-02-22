@@ -29,6 +29,5 @@ public class ErrorResponse {
     public String getMessage() { return message; }
     public String getPath() { return path; }
     public String getTimestamp() { return timestamp; }
-
     public Object getDetails() { return details; }
 }
