@@ -53,7 +53,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
-
         // access 토큰만 인증 처리 (refresh면 스킵)
         String typ = jwtProvider.parseTokenType(token);
         if (!"access".equals(typ)) {
