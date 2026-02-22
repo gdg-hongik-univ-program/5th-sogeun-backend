@@ -36,7 +36,6 @@ import java.util.List;
 
 @Slf4j
 @Tag(name = "User", description = "회원가입/로그인/내정보/테스트 API")
-@CrossOrigin("*")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api")
@@ -79,8 +78,9 @@ public class UserController {
         if (refreshToken != null && !refreshToken.isBlank()) {
             ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
                     .httpOnly(true)
-                    .secure(false)
-                    .sameSite("Lax")
+                    .secure(true)                 // ✅ HTTPS
+                    .sameSite("None")             // ✅ cross-site(서브도메인 포함) 안정
+                    .domain(".sogeun.cloud")      // ✅ 서브도메인 공유 핵심
                     .path("/")
                     .maxAge(Duration.ofDays(14))
                     .build();
