@@ -21,6 +21,7 @@ public class CorsConfig {
 
                 "https://sogeun.cloud",
                 "https://www.sogeun.cloud",
+                "https://api.sogeun.cloud",
 
                 "https://*.vercel.app"
         ));
