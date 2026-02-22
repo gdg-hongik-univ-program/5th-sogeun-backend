@@ -18,23 +18,17 @@ public class RefreshTokenRepository {
         return "refresh:" + userId;
     }
 
-    /**
-     * refreshToken 저장 + TTL 설정
-     */
+    //refreshToken 저장 + TTL 설정
     public void save(Long userId, String refreshToken, Duration ttl) {
         redisTemplate.opsForValue().set(key(userId), refreshToken, ttl);
     }
 
-    /**
-     * 저장된 refreshToken 조회
-     */
+    //저장된 refreshToken 조회
     public String get(Long userId) {
         return redisTemplate.opsForValue().get(key(userId));
     }
 
-    /**
-     * refreshToken 삭제(로그아웃)
-     */
+    //refreshToken 삭제
     public void delete(Long userId) {
         redisTemplate.delete(key(userId));
     }

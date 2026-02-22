@@ -8,9 +8,9 @@ import java.util.Optional;
 
 public interface MusicRecentRepository extends JpaRepository<MusicRecent, Long> {
 
-    // recordRecent()에서 사용
+    // recordRecent()
     Optional<MusicRecent> findByUser_UserIdAndMusic_Id(Long userId, Long musicId);
 
-    // getRecentSongs()에서 사용
+    // getRecentSongs()
     List<MusicRecent> findByUser_UserIdOrderByLastPlayedAtDesc(Long userId);
 }

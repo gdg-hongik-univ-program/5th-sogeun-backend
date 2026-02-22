@@ -43,7 +43,7 @@ public class GlobalExceptionHandler {
         );
     }
 
-    // 예상 못한 에러
+    // 기타 서버 에러
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleEtc(Exception e, HttpServletRequest req) {
 

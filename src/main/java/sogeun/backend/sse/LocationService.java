@@ -42,7 +42,7 @@ public class LocationService {
         return (positions == null || positions.isEmpty()) ? null : positions.get(0);
     }
 
-    // 반경 검색
+    // 반경 내 유저 검색
     public List<Long> findNearbyUsersWithRadius(Long myId, double lat, double lon, double radiusMeter) {
 
         Circle circle = new Circle(new Point(lon, lat), new Distance(radiusMeter, Metrics.METERS));
@@ -63,13 +63,4 @@ public class LocationService {
                 .toList();
     }
 
-    // 기존 저장된 위치 기준으로 반경 생성
-    public List<Long> findNearbyUsersByBroadcastRadius(Long userId, double lat, double lon) {
-
-        Broadcast broadcast = broadcastRepository
-                .findBySenderIdAndIsActiveTrue(userId)
-                .orElseThrow(() -> new AppException(ErrorCode.BROADCAST_NOT_ACTIVE));
-
-        return findNearbyUsersWithRadius(userId, lat, lon, broadcast.getRadiusMeter());
-    }
 }

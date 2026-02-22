@@ -54,7 +54,7 @@ public class MusicRecent {
         this.playCount = 1L;
     }
 
-    //최초생성
+    //최초 생성
     public static MusicRecent ofRec(User user, Music music, long playedAtMillis) {
         return new MusicRecent(user, music, Instant.ofEpochMilli(playedAtMillis));
     }

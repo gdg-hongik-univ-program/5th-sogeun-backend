@@ -17,7 +17,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query(value = "TRUNCATE TABLE users", nativeQuery = true)
     void truncateUsers();
 
-    List<User> findByUserIdIn(List<Long> userIds);
     List<User> findAllById(Iterable<Long> ids);
 
 
