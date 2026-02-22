@@ -30,6 +30,19 @@ public class SseEmitterRegistry {
         }
     }
 
+    //연결 해제
+    public void disconnect(Long userId) {
+        SseEmitter emitter = emitters.remove(userId); // 먼저 제거
+
+        if (emitter != null) {
+            log.info("[SSE-DISCONNECT] userId={} complete emitter", userId);
+            try {
+                emitter.complete(); // 실제 연결 종료
+            } catch (Exception ignore) {
+            }
+        }
+    }
+
     public SseEmitter get(Long userId) {
         return emitters.get(userId);
     }

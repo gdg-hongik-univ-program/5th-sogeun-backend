@@ -17,6 +17,8 @@ import sogeun.backend.repository.BroadcastRepository;
 import sogeun.backend.repository.UserRepository;
 import sogeun.backend.service.MusicService;
 import sogeun.backend.sse.dto.*;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 
 import java.io.IOException;
@@ -34,6 +36,7 @@ public class BroadcastService {
     private final UserRepository userRepository;
     private final MusicService musicService;
     private final BroadcastMusicLikeRepository broadcastMusicLikeRepository;
+    private final SseEmitterRegistry sseEmitterRegistry;
 
     private final Set<Long> activeSenders = ConcurrentHashMap.newKeySet();
 
@@ -69,30 +72,42 @@ public class BroadcastService {
         log.info("[BROADCAST-ON] done senderId={} radius={} targets={}", senderId, radius, targetUserIds.size());
     }
 
+
     @Transactional
     public void turnOff(Long senderId) {
         log.info("[BROADCAST-OFF] senderId={}", senderId);
 
         activeSenders.remove(senderId);
 
-        Broadcast broadcast = broadcastRepository.findBySenderId(senderId)
+        Broadcast broadcast = broadcastRepository.findBySenderIdForUpdate(senderId)
                 .orElseThrow(() -> new AppException(ErrorCode.BROADCAST_NOT_FOUND));
 
         int radius = broadcast.getRadiusMeter();
-
         Point p = locationService.getLocation(senderId);
 
         broadcast.deactivate();
 
-        if (p == null) return;
+        final List<Long> targetUserIds;
+        if (p == null) {
+            targetUserIds = List.of();
+        } else {
+            targetUserIds = locationService.findNearbyUsersWithRadius(senderId, p.getY(), p.getX(), radius);
+        }
 
-        List<Long> targetUserIds =
-                locationService.findNearbyUsersWithRadius(
-                        senderId, p.getY(), p.getX(), radius
-                );
+        BroadcastEventDto offEvent = BroadcastEventDto.off(senderId);
 
-        BroadcastEventDto event = BroadcastEventDto.off(senderId);
-        sendToTargets(targetUserIds, "broadcast.off", senderId, event);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                //  반경내 유저에게 off 이벤트 전송
+                if (!targetUserIds.isEmpty()) {
+                    sendToTargets(targetUserIds, "broadcast.off", senderId, offEvent);
+                }
+
+                //  송출자 SSE 연결 종료
+                sseEmitterRegistry.disconnect(senderId); // 구현 필요: emitter.complete()
+            }
+        });
     }
 
     private MusicDto toMusicDto(Music m) {
@@ -108,30 +123,20 @@ public class BroadcastService {
 
     @Transactional
     public void like(Long broadcastId, Long likerUserId) {
-        Broadcast broadcast = broadcastRepository.findById(broadcastId)
+        Broadcast broadcast = broadcastRepository.findByIdForUpdate(broadcastId)
                 .orElseThrow(() -> new AppException(ErrorCode.BROADCAST_NOT_FOUND));
-
-        // 송출중인지 체크
-        if (!broadcast.isActive()) {
-            broadcast.increaseLikeCount();
-            return;
-        }
 
         Long senderId = broadcast.getSenderId();
 
-        //  반경 변경 전 값 저장
         int oldRadius = broadcast.getRadiusMeter();
 
-        // 2like 증가 (+ 내부에서 radius 업데이트)
         broadcast.increaseLikeCount();
 
-        // 현재 곡의 likeCount도 +1 저장
         Music cur = broadcast.getMusic();
         if (cur != null && cur.getTrackId() != null) {
             increaseSongLikeCount(senderId, cur.getTrackId());
         }
 
-        // 반경 변경 후 값
         int newRadius = broadcast.getRadiusMeter();
 
         log.info("[BROADCAST-LIKE] broadcastId={} senderId={} likeCount={} radius {}->{}",
@@ -139,64 +144,56 @@ public class BroadcastService {
 
         // 반경이 실제로 안 변했으면 재전파x
         if (oldRadius == newRadius) {
-            Point p = locationService.getLocation(senderId);
-            if (p == null) return;
-
-            double lat = p.getY();
-            double lon = p.getX();
-
-            List<Long> targets = locationService.findNearbyUsersWithRadius(senderId, lat, lon, newRadius);
-            BroadcastLikeEventDto likeEvent =
-                    BroadcastLikeEventDto.of(senderId, broadcastId, broadcast.getLikeCount(), newRadius);
-
-            sendToTargets(targets, "broadcast.like", senderId, likeEvent);
             return;
         }
 
         Point p = locationService.getLocation(senderId);
         if (p == null) return;
 
-        double lat = p.getY(); // y=lat
-        double lon = p.getX(); // x=lon
+        double lat = p.getY();
+        double lon = p.getX();
 
-        // oldTargets / newTargets 계산
         List<Long> oldTargets = locationService.findNearbyUsersWithRadius(senderId, lat, lon, oldRadius);
         List<Long> newTargets = locationService.findNearbyUsersWithRadius(senderId, lat, lon, newRadius);
 
         Set<Long> oldSet = new HashSet<>(oldTargets);
         Set<Long> newSet = new HashSet<>(newTargets);
 
-        // joined = new - old
         Set<Long> joined = new HashSet<>(newSet);
         joined.removeAll(oldSet);
 
-        // left = old - new
         Set<Long> left = new HashSet<>(oldSet);
         left.removeAll(newSet);
 
-        // kept = intersection
         Set<Long> kept = new HashSet<>(newSet);
         kept.retainAll(oldSet);
 
-        // joined에게는 broadcast.on
+        // 커밋 후에 전송할 페이로드 미리 만들어 둠
         MusicDto musicDto = toMusicDto(broadcast.getMusic());
-        if (!joined.isEmpty() && musicDto != null) {
-            BroadcastEventDto onEvent = BroadcastEventDto.on(senderId, musicDto);
-            sendToTargets(joined.stream().toList(), "broadcast.on", senderId, onEvent);
-        }
+        Long finalBroadcastId = broadcastId;
+        int finalLikeCount = broadcast.getLikeCount();
+        int finalRadius = newRadius;
 
-        // left에게는 broadcast.off
-        if (!left.isEmpty()) {
-            BroadcastEventDto offEvent = BroadcastEventDto.off(senderId);
-            sendToTargets(left.stream().toList(), "broadcast.off", senderId, offEvent);
-        }
+        BroadcastEventDto onEvent = (musicDto != null) ? BroadcastEventDto.on(senderId, musicDto) : null;
+        BroadcastEventDto offEvent = BroadcastEventDto.off(senderId);
+        BroadcastLikeEventDto likeEvent =
+                BroadcastLikeEventDto.of(senderId, finalBroadcastId, finalLikeCount, finalRadius);
 
-        // kept에게는 broadcast.like
-        if (!kept.isEmpty()) {
-            BroadcastLikeEventDto likeEvent =
-                    BroadcastLikeEventDto.of(senderId, broadcastId, broadcast.getLikeCount(), newRadius);
-            sendToTargets(kept.stream().toList(), "broadcast.like", senderId, likeEvent);
-        }
+        // 트랜잭션 커밋 후에만 SSE 발송
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                if (!joined.isEmpty() && onEvent != null) {
+                    sendToTargets(new ArrayList<>(joined), "broadcast.on", senderId, onEvent);
+                }
+                if (!left.isEmpty()) {
+                    sendToTargets(new ArrayList<>(left), "broadcast.off", senderId, offEvent);
+                }
+                if (!kept.isEmpty()) {
+                    sendToTargets(new ArrayList<>(kept), "broadcast.like", senderId, likeEvent);
+                }
+            }
+        });
     }
 
     private void sendToTargets(
@@ -253,7 +250,7 @@ public class BroadcastService {
         Broadcast broadcast = broadcastRepository.findBySenderId(userId)
                 .orElse(null);
 
-        // 방송 자체가 없는 경우
+        // 송출 x 중인 경우
         if (broadcast == null) {
             return MyBroadcastResponse.builder()
                     .active(false)

@@ -46,16 +46,10 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui/index.html",
                                 "/v3/api-docs/**",
-                                "/clean/swagger-ui.html",
-                                "/clean/swagger-ui/**",
-                                "/clean/swagger-ui/index.html",
-                                "/clean/v3/api-docs/**",
-                                "/clean/api/users",
                                 "/error",
                                 "/"
                         ).permitAll()
 
-                        // ✅ SSE는 인증 필요(명시)
                         .requestMatchers(HttpMethod.GET, "/api/sse/**").permitAll()
 
                         .anyRequest().authenticated()

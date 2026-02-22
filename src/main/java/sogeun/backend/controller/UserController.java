@@ -172,15 +172,6 @@ public class UserController {
         return userService.getMe(userId);
     }
 
-    // 전체 유저 목록 조회
-    @Operation(summary = "전체 유저 조회", description = "전체 유저 리스트를 반환")
-    @GetMapping("/users")
-    public ResponseEntity<List<MeResponse>> getAllUsers() {
-        List<MeResponse> users = userService.getAllUsers();
-        log.info("[USERS] count={}", users.size());
-        return ResponseEntity.ok(users);
-    }
-
     // 닉네임 변경
     @Operation(summary = "닉네임 변경", description = "accessToken이 유효하면 닉네임 변경")
     @PatchMapping("/me/nickname")
@@ -199,8 +190,16 @@ public class UserController {
         userService.resetUsersForTest();
         return ResponseEntity.noContent().build();
     }
+    // 테스트용 전체 유저 목록 조회
+    @Operation(summary = "전체 유저 조회", description = "전체 유저 리스트를 반환")
+    @GetMapping("/users")
+    public ResponseEntity<List<MeResponse>> getAllUsers() {
+        List<MeResponse> users = userService.getAllUsers();
+        log.info("[USERS] count={}", users.size());
+        return ResponseEntity.ok(users);
+    }
 
-    // 쿠키에서 특정 값 추출
+    // 쿠키에서 값 추출
     private String extractCookie(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) return null;

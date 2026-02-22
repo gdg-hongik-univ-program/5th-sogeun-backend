@@ -29,8 +29,6 @@ public class LocationController {
         locationService.saveLocation(userId, request.getLat(), request.getLon());
         return ResponseEntity.ok().build();
     }
-    //이건 기존 연결로 대체
-    // @GetMapping("/subscribe") // public SseEmitter subscribe(@RequestParam Long userId) { // return locationService.subscribe(userId); // } // //이거는 song때문에 잠시 주석..
 
     @GetMapping("/nearby")
     public List<UserNearbyResponse> nearby(Authentication authentication) {

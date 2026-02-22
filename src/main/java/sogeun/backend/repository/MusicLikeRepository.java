@@ -14,8 +14,6 @@ public interface MusicLikeRepository extends JpaRepository<MusicLike, Long> {
 
     boolean existsByUser_UserIdAndMusic_Id(Long userId, Long musicId);
 
-    Optional<MusicLike> findByUser_UserIdAndMusic_Id(Long userId, Long musicId);
-
     @Modifying
     @Query("delete from MusicLike l where l.user.userId = :userId and l.music.id = :musicId")
     int deleteByUserIdAndMusicId(@Param("userId") Long userId, @Param("musicId") Long musicId);

@@ -100,10 +100,4 @@ public class Broadcast {
         updateRadiusByLikes();
     }
 
-    public void decreaseLikeCount() {
-        this.likeCount = Math.max(0, this.likeCount - 1);
-        updateRadiusByLikes();
-    }
-
-
 }

@@ -32,9 +32,7 @@ public class JwtProvider {
         this.refreshExpDays = refreshExpDays;
     }
 
-    /**
-     * Access Token 생성
-     */
+    //Access Token 생성
     public String createAccessToken(Long userId) {
         Instant now = Instant.now();
         Instant exp = now.plus(accessExpMinutes, ChronoUnit.MINUTES);
@@ -48,9 +46,7 @@ public class JwtProvider {
                 .compact();
     }
 
-    /**
-     * Refresh Token 생성  ← ✅ 추가
-     */
+   //Refresh Token 생성
     public String createRefreshToken(Long userId) {
         Instant now = Instant.now();
         Instant exp = now.plus(refreshExpDays, ChronoUnit.DAYS);
@@ -64,9 +60,7 @@ public class JwtProvider {
                 .compact();
     }
 
-    /**
-     * JWT 토큰에서 userId 추출
-     */
+    //JWT 토큰에서 userId 추출
     public Long parseUserId(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
@@ -77,9 +71,7 @@ public class JwtProvider {
         return Long.valueOf(claims.getSubject());
     }
 
-    /**
-     * JWT 토큰 타입(typ) 추출  ← ✅ 추가
-     */
+    //JWT 토큰 타입(typ) 추출
     public String parseTokenType(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
@@ -91,9 +83,7 @@ public class JwtProvider {
         return typ == null ? null : typ.toString();
     }
 
-    /**
-     * JWT 유효성 검증
-     */
+    //JWT 유효성 검증
     public boolean validate(String token) {
         try {
             Jwts.parserBuilder()
@@ -107,11 +97,4 @@ public class JwtProvider {
         }
     }
 
-    public boolean isAccessToken(String token) {
-        return "access".equals(parseTokenType(token));
-    }
-
-    public boolean isRefreshToken(String token) {
-        return "refresh".equals(parseTokenType(token));
-    }
 }

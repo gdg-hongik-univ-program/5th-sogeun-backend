@@ -1,7 +1,9 @@
 package sogeun.backend.repository;
 
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,8 +20,12 @@ public interface BroadcastRepository extends JpaRepository<Broadcast, Long> {
 
     Optional<Broadcast> findBySenderIdAndIsActiveTrue(Long userId);
 
-    @Modifying
-    @Query("update Broadcast b set b.likeCount = b.likeCount + 1, b.updatedAt = :now where b.broadcastId = :id")
-    int incrementLikeCount(@Param("id") Long broadcastId, @Param("now") LocalDateTime now);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from Broadcast b where b.id = :id")
+    Optional<Broadcast> findByIdForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from Broadcast b where b.senderId = :senderId")
+    Optional<Broadcast> findBySenderIdForUpdate(@Param("senderId") Long senderId);
 
 }

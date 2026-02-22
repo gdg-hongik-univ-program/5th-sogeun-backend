@@ -23,7 +23,6 @@ public class MusicController {
     private final MusicService musicService;
 
     //음악 좋아요 추가(토글)
-    // 음악 좋아요 토글
     @PostMapping("/update/music/likes")
     public ResponseEntity<Void> toggleLikeMusic(
             Authentication authentication,
@@ -44,10 +43,7 @@ public class MusicController {
     }
 
 
-    /**
-     * 최근 재생 기록 저장 (upsert)
-     * POST /api/update/music/recent
-     */
+    //최근 재생기록 저장
     @PostMapping("/update/music/recent")
     public ResponseEntity<Void> recordRecent(Authentication authentication,
                                              @RequestBody MusicRecentRequest request) {
@@ -56,16 +52,14 @@ public class MusicController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * 최근 재생 목록 조회
-     * GET /api/library/recent
-     */
+    //최근 재생기록 조회
     @GetMapping("/library/recent")
     public ResponseEntity<List<UserRecentSongResponse>> getMyRecent(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         return ResponseEntity.ok(musicService.getRecentSongs(userId));
     }
 
+    //소근 통계 조회
     @GetMapping("/library/sogeun")
     public ResponseEntity<SogeunLibraryResponse> sogeun(Authentication authentication) {
         Long userId = extractUserId(authentication);

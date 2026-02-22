@@ -46,10 +46,6 @@ public class User {
     private List<MusicRecent> recentMusics = new ArrayList<>();
 
 
-//    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "favorite_song_id")
-//    private Song favoriteSong;
-
     public User(String loginId, String password, String nickname) {
         this.loginId = loginId;
         this.password = password;
@@ -59,8 +55,4 @@ public class User {
     public void updateNickname(String nickname) {
         this.nickname = nickname;
     }
-
-//    public void updateFavoriteSong(Song song) {
-//        this.favoriteSong = song;
-//    }
 }
