@@ -173,10 +173,16 @@ public class UserService {
     public List<UserNearbyResponse> findNearbyBroadcastingUsers(Long userId) {
         log.info("[NEARBY] start requesterId={}", userId);
 
-        // 방송 중인지 확인
+        // [수정 포인트] orElseThrow 대신 orElse(null)을 사용하여 방송 중이 아닐 때를 대비합니다.
         Broadcast requesterBroadcast = broadcastRepository
                 .findBySenderIdAndIsActiveTrue(userId)
-                .orElseThrow(() -> new AppException(ErrorCode.BROADCAST_NOT_ACTIVE));
+                .orElse(null);
+
+        // 방송 중이 아니면 주변 유저를 찾을 필요가 없으므로 즉시 빈 리스트 반환
+        if (requesterBroadcast == null) {
+            log.info("[NEARBY] requester is not broadcasting. requesterId={}", userId);
+            return List.of();
+        }
 
         Point p = locationService.getLocation(userId);
         if (p == null) {
