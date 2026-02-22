@@ -164,6 +164,7 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+
     // 내 정보 반환
     @Operation(summary = "내 정보 조회", description = "accessToken이 유효하면 내 정보 반환")
     @GetMapping("/me/information")
