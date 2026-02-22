@@ -9,8 +9,8 @@ public class ErrorResponse {
     private final String code;
     private final String message;
     private final String path;
-    private final OffsetDateTime timestamp;
-    private final Object details; // 검증 오류 같은 경우만 사용
+    private final String timestamp;
+    private final Object details;
 
     public ErrorResponse(String code, String message, String path) {
         this(code, message, path, null);
@@ -21,12 +21,14 @@ public class ErrorResponse {
         this.message = message;
         this.path = path;
         this.details = details;
-        this.timestamp = OffsetDateTime.now();
+
+        this.timestamp = OffsetDateTime.now().toString();
     }
 
     public String getCode() { return code; }
     public String getMessage() { return message; }
     public String getPath() { return path; }
-    public OffsetDateTime getTimestamp() { return timestamp; }
+    public String getTimestamp() { return timestamp; }
+
     public Object getDetails() { return details; }
 }
