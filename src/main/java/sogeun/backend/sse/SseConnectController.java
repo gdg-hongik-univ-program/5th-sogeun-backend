@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -56,5 +57,11 @@ public class SseConnectController {
         }
 
         return emitter;
+    }
+
+    @ExceptionHandler(Exception.class)
+    public void handleSseException(Exception e) {
+        // SSE 연결 중 에러가 나면 JSON 응답을 보내지 않고 로그만 남기고 종료
+        log.error("[SSE-CONTROLLER-ERROR] 에러 발생: {}", e.getMessage());
     }
 }
