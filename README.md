@@ -74,13 +74,12 @@ SOGEUN은 사용자가 현재 듣고 있는 음악을 주변 사람들과 실시
 
 **Cloud**
 
-- AWS (선택 시 작성)
+- AWS Ec2
 
 ---
 
 ## 📁 프로젝트 구조
 
-```json
 ```
 src/main/java/com/example/sogeun/
 ├── SogeunApplication.java          # 메인 애플리케이션
@@ -110,7 +109,6 @@ src/main/java/com/example/sogeun/
 └───dto/                         # 데이터 전송 객체
 ```
 
-```
 
 ## 📊 핵심 특징
 
