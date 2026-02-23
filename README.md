@@ -101,12 +101,12 @@ src/main/java/com/example/sogeun/
 ├── service/                        # 비즈니스 로직
 ├── common                   
 │   └──exception                    # 예외 처리
-├── sse                             # 송출 관련
-├──BroadcastConroller           # 송출 관련 API
-├──LocationController           # 위치 관련 API
-├──SseConnectController         # SSE 연결 관련 API
-├──Service/                     # 송출 관련 비즈니스 로직
-└───dto/                         # 데이터 전송 객체
+├── sse/                            # 실시간 송출 및 알림 관련 (SSE)
+│   ├── BroadcastController.java    # 송출 관련 API
+│   ├── LocationController.java     # 위치 관련 API
+│   ├── SseConnectController.java   # SSE 연결 관련 API
+│   ├── Service/                    # 송출 관련 비즈니스 로직
+│   └── dto/                        # 송출용 데이터 전송 객체
 ```
 
 
