@@ -101,12 +101,12 @@ src/main/java/com/example/sogeun/
 ├── service/                        # 비즈니스 로직
 ├── common                   
 │   └──exception                    # 예외 처리
-├── sse                             # 송출 관련
-├──BroadcastConroller           # 송출 관련 API
-├──LocationController           # 위치 관련 API
-├──SseConnectController         # SSE 연결 관련 API
-├──Service/                     # 송출 관련 비즈니스 로직
-└───dto/                         # 데이터 전송 객체
+├── sse/                            # 실시간 송출 및 알림 관련 (SSE)
+│   ├── BroadcastController.java    # 송출 관련 API
+│   ├── LocationController.java     # 위치 관련 API
+│   ├── SseConnectController.java   # SSE 연결 관련 API
+│   ├── Service/                    # 송출 관련 비즈니스 로직
+│   └── dto/                        # 송출용 데이터 전송 객체
 ```
 
 
@@ -133,9 +133,11 @@ src/main/java/com/example/sogeun/
 
 ## 📢 SSE 선택 이유
 
-- 실시간성:
-- 효율성:
+- 실시간성: 서버에서 클라이언트로의 단방향 푸시 방식으로, 변경 사항 발생 시 즉시 전송되어 polling 없이도 거의 실시간 업데이트 가능
 
+- 효율성: HTTP 연결을 하나만 유지한 채 지속적으로 이벤트를 전송하므로, 반복적인 요청/응답이 필요한 polling 방식보다 네트워크 및 서버 자원 사용이 적음
+
+- 단순성: WebSocket보다 구현이 간단하며, 별도의 프로토콜 업그레이드 없이 표준 HTTP 기반으로 동작하여 서버 및 인프라 구성 부담이 낮음
 ---
 
 ## 👥 Team
